@@ -1,6 +1,6 @@
 /* Service worker : rend le site installable et utilisable même si le réseau est lent.
    Fichiers du site : réseau d'abord (toujours la dernière version), copie de secours sinon. */
-const CACHE='plot7-v11';
+const CACHE='plot7-v12';
 const SHELL=['./','index.html','manifest.webmanifest','icon-192.png','icon-512.png'];
 const CDN=['cdnjs.cloudflare.com','www.gstatic.com','fonts.googleapis.com','fonts.gstatic.com'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).catch(()=>{}));self.skipWaiting()});

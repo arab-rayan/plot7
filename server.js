@@ -29,7 +29,7 @@ VIEWS.serveur=function(){const L=servers();
  </div>`;
  L.forEach(s=>{if(!SV.st[s.id]||SV.st[s.id]==='idle')svProbe(s.id)});
 };
-function onLeave(prev){}
+function onLeave(prev){if(prev==='chat'&&typeof CH!=='undefined')CH.list=true}
 function svEdit(id){const L=clone(servers());const s=id?L.find(x=>x.id===id):null;
  openForm({title:s?'Modifier le serveur':'Ajouter un serveur',values:s||{port:8006,role:'Proxmox VE'},fields:[{k:'name',label:'Nom du serveur',placeholder:'Ex. PVE-PLOT7',wide:true},{k:'host',label:'Adresse IP',placeholder:'Ex. 10.113.7.1'},{k:'port',label:'Port',type:'number'},{k:'role',label:'Rôle (facultatif)',placeholder:'Ex. Proxmox VE 9.2'},{k:'target',label:'Adresse prévue (facultatif)'}],
   onSave:async v=>{if(!v.name||!v.host)return toast('Le nom et l\'adresse IP sont obligatoires.','bad');const data={name:v.name,host:v.host.replace(/^https?:\/\//,'').replace(/[:/].*$/,''),port:+v.port||8006,role:v.role,target:v.target};

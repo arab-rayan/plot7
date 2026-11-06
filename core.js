@@ -224,7 +224,7 @@ function updateShellBits(){
  $('#nav').innerHTML=NAV.map(([r,l,i])=>`<a href="#${r}" data-r="${r}" class="${r===CUR?'active':''}">${ui(i)}<span>${l}</span>${badge(r)}</a>`).join('');
  const P=plotInfo();const bn=$('#brandName');if(bn){bn.textContent=P.name;$('#brandSub').textContent=`${P.promo?P.promo+' · ':'BTS SIO SISR · '}${P.net||''}`;document.title=P.name}
  const tb=$('#tabbar');if(tb){const T=[['accueil','Accueil','home'],['chat','Discussion','chat'],['appel','Appel','phone'],['fichiers','Fichiers','folder']];const more=!T.some(t=>t[0]===CUR);
-  tb.innerHTML=T.map(([r,l,i])=>`<a href="#${r}" class="${r===CUR?'on':''}">${ui(i,22)}<span>${l}</span>${badge(r)}</a>`).join('')+`<button type="button" class="${more?'on':''}" onclick="$('#rail').classList.add('open')">${ui('menu',22)}<span>Plus</span>${(mineOpen&&!more)?'<i class="dotb"></i>':''}</button>`}
+  tb.innerHTML=T.map(([r,l,i])=>`<a href="#${r}" class="${r===CUR?'on':''}" ${r==='chat'?`onclick="if(CUR==='chat'&&isMob()&&!CH.list){event.preventDefault();backToRooms()}"`:''}>${ui(i,22)}<span>${l}</span>${badge(r)}</a>`).join('')+`<button type="button" class="${more?'on':''}" onclick="$('#rail').classList.add('open')">${ui('menu',22)}<span>Plus</span>${(mineOpen&&!more)?'<i class="dotb"></i>':''}</button>`}
  const bc=$('#bellCount');bc.hidden=!u;bc.textContent=u>9?'9+':u;
  $('#meBtn').innerHTML=`${avatar(ME.name,ME.color)}<span class="small" style="font-weight:600">${esc(ME.name)}</span>`;
  const on=$('#online');if(on)on.innerHTML=`<div class="tiny" style="color:var(--rail-muted);margin-bottom:8px">Le groupe</div>`+members().map(m=>`<span class="on-m ${presCls(m.id)}" title="${esc(m.name)} · ${presLabel(m.id)}">${avatar(m.name,m.color)}<i></i></span>`).join('');

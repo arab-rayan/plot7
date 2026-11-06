@@ -1,0 +1,523 @@
+{
+ "meta": {
+  "plot": {
+   "name": "Plot virtuel 7",
+   "net": "10.113.7.x/16",
+   "gw": "10.113.10.113",
+   "createdAt": 1793962235813
+  },
+  "members": {
+   "list": [
+    {
+     "id": "p1",
+     "name": "Rayan",
+     "role": "",
+     "color": "#2d5bd8"
+    },
+    {
+     "id": "p2",
+     "name": "Selene",
+     "role": "",
+     "color": "#d9822b"
+    },
+    {
+     "id": "p3",
+     "name": "Aksil",
+     "role": "",
+     "color": "#8b4fd1"
+    },
+    {
+     "id": "p4",
+     "name": "Walid",
+     "role": "",
+     "color": "#1f9d74"
+    }
+   ],
+   "updatedAt": 1793962235813,
+   "updatedBy": "Rayan"
+  },
+  "pve": {
+   "host": "10.113.4.1",
+   "port": 8006,
+   "target": "10.113.7.1",
+   "updatedAt": 1793962235813,
+   "updatedBy": "Rayan"
+  }
+ },
+ "sites": {
+  "plot7": {
+   "name": "Plot virtuel 7",
+   "code": 7,
+   "kind": "batiment",
+   "central": false,
+   "x": 400,
+   "y": 300,
+   "notes": "Plot virtuel : 4 membres, un seul serveur Proxmox. Réseau 10.113.7.x/16.",
+   "floors": [
+    {
+     "id": "f0",
+     "name": "Salle"
+    }
+   ],
+   "rooms": [
+    {
+     "id": "r-salle",
+     "name": "Salle de cours (postes)",
+     "floorId": "f0",
+     "x": 0,
+     "y": 0,
+     "w": 420,
+     "h": 240,
+     "notes": ""
+    },
+    {
+     "id": "r-baie",
+     "name": "Baie du plot",
+     "floorId": "f0",
+     "x": 440,
+     "y": 0,
+     "w": 260,
+     "h": 240,
+     "notes": ""
+    }
+   ],
+   "vlans": [
+    {
+     "id": 1,
+     "label": "vmbr0",
+     "zone": true,
+     "name": "Réseau du lycée",
+     "net": "10.113.0.0/16",
+     "pool": "10.113.7.0",
+     "gw": "10.113.10.113",
+     "use": "Postes, serveur Proxmox et WAN de pfSense (adresses 10.113.7.x)",
+     "color": "#2d5bd8"
+    },
+    {
+     "id": 2,
+     "label": "vmbr1",
+     "zone": true,
+     "name": "LAN interne (proposition)",
+     "net": "192.168.7.0/24",
+     "gw": "192.168.7.254",
+     "use": "Machines virtuelles derrière pfSense",
+     "color": "#1f9d74"
+    }
+   ],
+   "eq": [
+    {
+     "id": "g1",
+     "type": "routeur",
+     "name": "GW-LYCEE",
+     "floorId": "",
+     "roomId": "",
+     "x": 0,
+     "y": 0,
+     "role": "Passerelle et DNS du réseau du lycée (10.113.0.0/16).",
+     "ip": "10.113.10.113",
+     "vlan": "1",
+     "os": "",
+     "scope": "local",
+     "status": "reel",
+     "notes": "Donnée du réseau du lycée.",
+     "specs": {}
+    },
+    {
+     "id": "g2",
+     "type": "switch",
+     "name": "SW-SALLE",
+     "floorId": "f0",
+     "roomId": "r-baie",
+     "x": 470,
+     "y": 60,
+     "role": "Réseau de la salle qui relie les postes et le serveur au réseau du lycée.",
+     "ip": "",
+     "vlan": "1",
+     "os": "",
+     "scope": "local",
+     "status": "propose",
+     "notes": "Équipement du lycée, à préciser.",
+     "specs": {
+      "niveau": "2"
+     },
+     "rackU": 10
+    },
+    {
+     "id": "s1",
+     "type": "serveur",
+     "name": "P7-S1",
+     "floorId": "f0",
+     "roomId": "r-baie",
+     "x": 470,
+     "y": 150,
+     "role": "Hyperviseur Proxmox VE du plot : héberge toutes les machines virtuelles.",
+     "ip": "10.113.7.1",
+     "vlan": "1",
+     "os": "Proxmox VE 9.2",
+     "scope": "local",
+     "status": "reel",
+     "notes": "Adresse actuelle : 10.113.4.1 (ancien P4-S1). Adresse prévue : 10.113.7.1.",
+     "specs": {
+      "stockage": "SSD Samsung 860 (931 Gio)"
+     },
+     "rackU": 5,
+     "rackH": 2
+    },
+    {
+     "id": "c1",
+     "type": "poste",
+     "name": "P7-C1",
+     "floorId": "f0",
+     "roomId": "r-salle",
+     "x": 40,
+     "y": 120,
+     "role": "Poste d'administration d'un membre du plot.",
+     "ip": "10.113.7.3",
+     "vlan": "1",
+     "os": "",
+     "scope": "local",
+     "status": "propose",
+     "notes": "Adresse proposée, à valider.",
+     "specs": {}
+    },
+    {
+     "id": "c2",
+     "type": "poste",
+     "name": "P7-C2",
+     "floorId": "f0",
+     "roomId": "r-salle",
+     "x": 135,
+     "y": 120,
+     "role": "Poste d'administration d'un membre du plot.",
+     "ip": "10.113.7.4",
+     "vlan": "1",
+     "os": "",
+     "scope": "local",
+     "status": "propose",
+     "notes": "Adresse proposée, à valider.",
+     "specs": {}
+    },
+    {
+     "id": "c3",
+     "type": "poste",
+     "name": "P7-C3",
+     "floorId": "f0",
+     "roomId": "r-salle",
+     "x": 230,
+     "y": 120,
+     "role": "Poste d'administration d'un membre du plot.",
+     "ip": "10.113.7.5",
+     "vlan": "1",
+     "os": "",
+     "scope": "local",
+     "status": "propose",
+     "notes": "Adresse proposée, à valider.",
+     "specs": {}
+    },
+    {
+     "id": "c4",
+     "type": "poste",
+     "name": "P7-C4",
+     "floorId": "f0",
+     "roomId": "r-salle",
+     "x": 325,
+     "y": 120,
+     "role": "Poste d'administration d'un membre du plot.",
+     "ip": "10.113.7.6",
+     "vlan": "1",
+     "os": "",
+     "scope": "local",
+     "status": "propose",
+     "notes": "Adresse proposée, à valider.",
+     "specs": {}
+    },
+    {
+     "id": "v1",
+     "type": "parefeu",
+     "name": "FW-P7",
+     "floorId": "",
+     "roomId": "",
+     "x": 0,
+     "y": 0,
+     "role": "Pare-feu pfSense : WAN 10.113.7.10 sur vmbr0 (réseau du lycée), LAN 192.168.7.254 sur vmbr1 (réseau interne).",
+     "ip": "10.113.7.10",
+     "vlan": "1",
+     "os": "pfSense",
+     "scope": "local",
+     "status": "propose",
+     "notes": "Reprise du Plot 4, à valider par le groupe.",
+     "specs": {
+      "logiciel": "pfSense",
+      "vpn": "",
+      "hote": "P7-S1 (VM)"
+     }
+    },
+    {
+     "id": "v2",
+     "type": "vm",
+     "name": "SRV-AD",
+     "floorId": "",
+     "roomId": "",
+     "x": 0,
+     "y": 0,
+     "role": "Annuaire Active Directory, DNS (et DHCP si retenu).",
+     "ip": "192.168.7.10",
+     "vlan": "2",
+     "os": "Windows Server 2022",
+     "scope": "local",
+     "status": "propose",
+     "notes": "Reprise du Plot 4, à valider par le groupe.",
+     "specs": {
+      "hote": "P7-S1 (Proxmox)",
+      "services": "Annuaire Active Directory, DNS (et DHCP si retenu)."
+     }
+    },
+    {
+     "id": "v3",
+     "type": "vm",
+     "name": "SRV-BDD",
+     "floorId": "",
+     "roomId": "",
+     "x": 0,
+     "y": 0,
+     "role": "Serveur de base de données MySQL / MariaDB.",
+     "ip": "192.168.7.20",
+     "vlan": "2",
+     "os": "Debian 13",
+     "scope": "local",
+     "status": "propose",
+     "notes": "Reprise du Plot 4, à valider par le groupe.",
+     "specs": {
+      "hote": "P7-S1 (Proxmox)",
+      "services": "Serveur de base de données MySQL / MariaDB."
+     }
+    },
+    {
+     "id": "v4",
+     "type": "vm",
+     "name": "CLI-W11",
+     "floorId": "",
+     "roomId": "",
+     "x": 0,
+     "y": 0,
+     "role": "Poste client de test, membre du domaine.",
+     "ip": "DHCP",
+     "vlan": "2",
+     "os": "Windows 11",
+     "scope": "local",
+     "status": "propose",
+     "notes": "Reprise du Plot 4, à valider par le groupe.",
+     "specs": {
+      "hote": "P7-S1 (Proxmox)",
+      "services": "Poste client de test, membre du domaine."
+     }
+    },
+    {
+     "id": "v5",
+     "type": "vm",
+     "name": "SRV-UBU",
+     "floorId": "",
+     "roomId": "",
+     "x": 0,
+     "y": 0,
+     "role": "Rôle à définir par le groupe.",
+     "ip": "192.168.7.30",
+     "vlan": "2",
+     "os": "Ubuntu",
+     "scope": "local",
+     "status": "propose",
+     "notes": "Reprise du Plot 4, à valider par le groupe.",
+     "specs": {
+      "hote": "P7-S1 (Proxmox)",
+      "services": "Rôle à définir par le groupe."
+     }
+    },
+    {
+     "id": "b1",
+     "type": "switch",
+     "name": "vmbr1",
+     "floorId": "",
+     "roomId": "",
+     "x": 0,
+     "y": 0,
+     "role": "Pont réseau interne de Proxmox, sans carte physique : relie les VM derrière pfSense.",
+     "ip": "",
+     "vlan": "2",
+     "os": "",
+     "scope": "local",
+     "status": "propose",
+     "notes": "Pont virtuel (Linux Bridge) sur P7-S1.",
+     "specs": {
+      "niveau": "2"
+     }
+    }
+   ],
+   "links": [
+    {
+     "id": "l1",
+     "a": "g1",
+     "b": "g2",
+     "type": "rj45",
+     "label": "Réseau du lycée"
+    },
+    {
+     "id": "l2",
+     "a": "g2",
+     "b": "s1",
+     "type": "rj45",
+     "label": "nic0 · vmbr0"
+    },
+    {
+     "id": "lc1",
+     "a": "c1",
+     "b": "g2",
+     "type": "rj45",
+     "label": ""
+    },
+    {
+     "id": "lc2",
+     "a": "c2",
+     "b": "g2",
+     "type": "rj45",
+     "label": ""
+    },
+    {
+     "id": "lc3",
+     "a": "c3",
+     "b": "g2",
+     "type": "rj45",
+     "label": ""
+    },
+    {
+     "id": "lc4",
+     "a": "c4",
+     "b": "g2",
+     "type": "rj45",
+     "label": ""
+    },
+    {
+     "id": "l3",
+     "a": "s1",
+     "b": "v1",
+     "type": "rj45",
+     "label": "vmbr0 (WAN)"
+    },
+    {
+     "id": "l4",
+     "a": "v1",
+     "b": "b1",
+     "type": "rj45",
+     "label": "vmbr1 (LAN)"
+    },
+    {
+     "id": "lv2",
+     "a": "b1",
+     "b": "v2",
+     "type": "rj45",
+     "label": ""
+    },
+    {
+     "id": "lv3",
+     "a": "b1",
+     "b": "v3",
+     "type": "rj45",
+     "label": ""
+    },
+    {
+     "id": "lv4",
+     "a": "b1",
+     "b": "v4",
+     "type": "rj45",
+     "label": ""
+    },
+    {
+     "id": "lv5",
+     "a": "b1",
+     "b": "v5",
+     "type": "rj45",
+     "label": ""
+    },
+    {
+     "id": "lf1",
+     "a": "v4",
+     "b": "v2",
+     "type": "auth",
+     "label": "Domaine"
+    },
+    {
+     "id": "lf2",
+     "a": "v2",
+     "b": "v3",
+     "type": "flux",
+     "label": ""
+    }
+   ],
+   "updatedAt": 1793962235813,
+   "updatedBy": "Rayan"
+  }
+ },
+ "tasks": {
+  "T01": {
+   "code": "T01",
+   "title": "Changer l'adresse du serveur Proxmox en 10.113.7.1",
+   "owner": "",
+   "status": "todo",
+   "desc": "Dans Proxmox : Nœud › Système › Réseau › vmbr0, puis mettre à jour /etc/hosts. Ensuite, changer l'adresse dans la page Serveur du site (bouton crayon).",
+   "priority": "haute",
+   "start": "",
+   "due": "",
+   "deps": [],
+   "eqs": [
+    "s1"
+   ],
+   "updatedAt": 1793962235813,
+   "updatedBy": "Rayan"
+  },
+  "T03": {
+   "code": "T03",
+   "title": "Valider le plan d'adressage du plot (postes et VM)",
+   "owner": "all",
+   "status": "todo",
+   "desc": "Les adresses des postes (10.113.7.3 à .6) et des VM (192.168.7.0/24) sont des propositions.",
+   "priority": "moyenne",
+   "start": "",
+   "due": "",
+   "deps": [],
+   "eqs": [],
+   "updatedAt": 1793962235813,
+   "updatedBy": "Rayan"
+  },
+  "T04": {
+   "code": "T04",
+   "title": "Répartir les VM entre les quatre membres",
+   "owner": "all",
+   "status": "todo",
+   "desc": "",
+   "priority": "moyenne",
+   "start": "",
+   "due": "",
+   "deps": [
+    "T03"
+   ],
+   "eqs": [
+    "v1",
+    "v2",
+    "v3",
+    "v4",
+    "v5"
+   ],
+   "updatedAt": 1793962235813,
+   "updatedBy": "Rayan"
+  }
+ },
+ "activity": {
+  "a0": {
+   "who": "Rayan",
+   "color": "#2d5bd8",
+   "verb": "a créé",
+   "label": "l'espace du Plot virtuel 7",
+   "route": "accueil",
+   "ts": 1793962235813
+  }
+ }
+}

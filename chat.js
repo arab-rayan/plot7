@@ -42,7 +42,7 @@ VIEWS.chat=function(){
  const dz=$('#chatDz');dz.ondragover=e=>{if(![...e.dataTransfer.types].includes('Files'))return;e.preventDefault();dz.classList.add('over')};dz.ondragleave=e=>{if(!dz.contains(e.relatedTarget))dz.classList.remove('over')};dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');chatAttach([...e.dataTransfer.files])};
  scrollMsgs(true);loadThumbs();if(matchMedia('(pointer:fine)').matches)ta.focus();
 };
-const onlineList=()=>members().filter(m=>isOnline(m.id)||m.id===ME.id).map(m=>`<div class="row small" style="gap:8px;padding:4px 8px;flex-wrap:nowrap"><span class="on-m is-on">${avatar(m.name,m.color)}<i></i></span>${esc(m.name)}${callPeople().some(p=>p.uid===m.id)?` <span class="tiny" style="color:var(--ok)">${ui('phone',12)}</span>`:''}</div>`).join('');
+const onlineList=()=>members().filter(m=>presState(m.id)!=='off').map(m=>`<div class="row small" style="gap:8px;padding:4px 8px;flex-wrap:nowrap" title="${esc(presLabel(m.id))}"><span class="on-m ${presCls(m.id)}">${avatar(m.name,m.color)}<i></i></span>${esc(m.name)}${callPeople().some(p=>p.uid===m.id)?` <span class="tiny" style="color:var(--ok)">${ui('phone',12)}</span>`:''}</div>`).join('');
 function autoGrow(t){t.style.height='auto';t.style.height=Math.min(180,t.scrollHeight)+'px'}
 function scrollMsgs(force){const b=$('#msgs');if(!b)return;if(force||b.scrollHeight-b.scrollTop-b.clientHeight<160)b.scrollTop=b.scrollHeight}
 function chatLive(){const b=$('#msgs');if(!b){renderView();return}const near=b.scrollHeight-b.scrollTop-b.clientHeight<160;b.innerHTML=msgsHtml();if(near)b.scrollTop=b.scrollHeight;loadThumbs();

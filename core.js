@@ -92,7 +92,9 @@ function localStoreInit(){
 }
 
 /* ===================== Identité ===================== */
-let ME=ls.get(KEY('me'),null);
+// Identité gardée seulement le temps de la session : fermer l'onglet ou l'app déconnecte.
+const ss={get(k,d){try{const v=sessionStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{v==null?sessionStorage.removeItem(k):sessionStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let ME=ss.get(KEY('me'),null);
 let GATE_ENTER=null;
 function renderGate(){const box=$('#whoGrid');if(!box||!GATE_ENTER)return;
  const P=plotInfo();const t=$('#gateTitle');if(t)t.textContent=P.name;const e=$('#gateEyebrow');if(e)e.textContent=P.promo||'BTS SIO SISR · Lycée Turgot';
@@ -101,7 +103,7 @@ function renderGate(){const box=$('#whoGrid');if(!box||!GATE_ENTER)return;
  if(!members().length){box.innerHTML='<p class="small" style="color:#9fb0dd">Chargement des membres…</p>';return}
  box.innerHTML=members().map(m=>`<button class="who-btn" data-id="${m.id}">${avatar(m.name,m.color,'lg')}<span><b>${esc(m.name)}</b><small>${esc(m.role||plotInfo().name)}</small></span></button>`).join('');
  $$('.who-btn',box).forEach(b=>b.onclick=()=>{const m=members().find(x=>x.id===b.dataset.id);GATE_ENTER({name:m.name,id:m.id,color:m.color})})}
-function syncMe(){if(!ME?.id)return;const m=members().find(x=>x.id===ME.id);if(m&&(m.name!==ME.name||m.color!==ME.color)){ME={...ME,name:m.name,color:m.color};ls.set(KEY('me'),ME)}}
+function syncMe(){if(!ME?.id)return;const m=members().find(x=>x.id===ME.id);if(m&&(m.name!==ME.name||m.color!==ME.color)){ME={...ME,name:m.name,color:m.color};ss.set(KEY('me'),ME)}}
 function gate(){
  const g=document.createElement('div');g.className='gate';g.id='gate';
  g.innerHTML=`<div class="gate-card"><div class="row" style="gap:12px"><div class="brand-mark">${icon('serveur',30)}</div><div><div class="eyebrow" style="color:#9fb0dd" id="gateEyebrow">BTS SIO SISR · Lycée Turgot</div><h1 id="gateTitle">${esc(plotInfo().name)}</h1></div></div>
@@ -110,16 +112,31 @@ function gate(){
  <div class="who-grid" id="whoGrid"></div>
  <p class="tiny" style="margin-top:14px">Les changements sont visibles en direct par tout le groupe.</p></div>`;
  document.body.appendChild(g);
- const enter=(m)=>{ME=m;ls.set(KEY('me'),m);g.style.transition='opacity .35s';g.style.opacity='0';setTimeout(()=>g.remove(),350);renderShell();route();if(typeof beat==='function')beat();if(!ls.get(KEY('seen-')+m.id,0))ls.set(KEY('seen-')+m.id,Date.now()-7*864e5)};
+ const enter=(m)=>{ME=m;ss.set(KEY('me'),m);LAST_ACT=Date.now();g.style.transition='opacity .35s';g.style.opacity='0';setTimeout(()=>g.remove(),350);renderShell();route();if(typeof beat==='function')beat();if(!ls.get(KEY('seen-')+m.id,0))ls.set(KEY('seen-')+m.id,Date.now()-7*864e5)};
  GATE_ENTER=enter;renderGate();
+ if(ss.get('p7-autologout',0)){ss.set('p7-autologout',null);setTimeout(()=>toast('Tu as été déconnecté après 30 minutes d\'inactivité.'),400)}
  $('#spaceSel',g).onchange=e=>switchSpace(e.target.value);$('#newSpaceBtn',g).onclick=newSpace;
 }
 
 /* ===================== Présence (qui est en ligne) ===================== */
 let BEAT=null;
-async function beat(){if(!ME||!DBH||document.hidden)return;try{await ref('presence').doc(ME.id).set({name:ME.name,color:ME.color,ts:Date.now(),page:CUR})}catch(e){}}
-function startPresence(){if(BEAT)return;beat();BEAT=setInterval(beat,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)beat()})}
-const isOnline=id=>{const p=D.presence.get(id);return p&&Date.now()-p.ts<150000};
+let LAST_ACT=Date.now();
+['pointerdown','keydown','wheel','touchstart'].forEach(ev=>addEventListener(ev,()=>{LAST_ACT=Date.now()},{passive:true,capture:true}));
+let _mm=0;addEventListener('mousemove',()=>{const n=Date.now();if(n-_mm>5000){_mm=n;LAST_ACT=n}},{passive:true});
+async function beat(){if(!ME||!DBH)return;try{await ref('presence').doc(ME.id).set({name:ME.name,color:ME.color,ts:Date.now(),act:LAST_ACT,vis:!document.hidden,page:CUR,off:false})}catch(e){}}
+function startPresence(){if(BEAT)return;beat();BEAT=setInterval(()=>{beat();idleCheck()},30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)LAST_ACT=Date.now();beat()})}
+/* Hors ligne tout de suite quand on ferme l'onglet ou l'app */
+async function goOffline(){if(!ME||!DBH)return;try{await ref('presence').doc(ME.id).set({name:ME.name,color:ME.color,ts:Date.now(),off:true})}catch(e){}}
+addEventListener('pagehide',()=>{if(!ME||!FIRE||!window.FIREBASE_CONFIG)return;const C=window.FIREBASE_CONFIG;
+ try{fetch(`https://firestore.googleapis.com/v1/projects/${C.projectId}/databases/(default)/documents/${PREFIX_DB}presence/${ME.id}?key=${C.apiKey}`,{method:'PATCH',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{name:{stringValue:ME.name},color:{stringValue:ME.color||''},ts:{integerValue:String(Date.now())},off:{booleanValue:true}}})})}catch(e){}});
+/* Déconnexion automatique après 30 minutes sans rien faire (sauf pendant un appel) */
+const IDLE_MAX=30*60000;
+function idleCheck(){if(!ME)return;if(typeof CALL!=='undefined'&&CALL.in)return;if(Date.now()-LAST_ACT>IDLE_MAX)autoLogout()}
+async function autoLogout(){await goOffline();ss.set(KEY('me'),null);ss.set('p7-autologout',1);location.reload()}
+const presState=id=>{if(ME&&id===ME.id)return 'on';const p=D.presence.get(id);if(!p||p.off||Date.now()-p.ts>75000)return 'off';if(p.vis===false||Date.now()-(p.act||p.ts)>5*60000)return 'away';return 'on'};
+const isOnline=id=>presState(id)==='on';
+const presLabel=id=>{const s=presState(id);if(s==='on')return 'en ligne';if(s==='off')return 'hors ligne';const p=D.presence.get(id);const m=Math.round((Date.now()-(p.vis===false?p.ts:(p.act||p.ts)))/60000);return p.vis===false?'absent (onglet caché)':`absent · inactif depuis ${m} min`};
+const presCls=id=>({on:'is-on',away:'is-away',off:''})[presState(id)];
 
 /* ===================== Notifications ===================== */
 const seenKey=()=>KEY('seen-')+(ME?.id||'');
@@ -166,7 +183,7 @@ async function saveFile(filename,data){
 }
 
 /* ===================== Routeur & coque ===================== */
-const NAV=[['accueil','Accueil','home'],['serveur','Serveur Proxmox','server'],['infra','Infrastructure','map'],['taches','Tâches et planning','tasks'],['chat','Discussion','chat'],['fichiers','Fichiers','folder'],['appel','Appel','phone'],['equipe','Équipe','team']];
+const NAV=[['accueil','Accueil','home'],['serveur','Serveurs Proxmox','server'],['infra','Infrastructure','map'],['taches','Tâches et planning','tasks'],['chat','Discussion','chat'],['fichiers','Fichiers','folder'],['appel','Appel','phone'],['equipe','Équipe','team']];
 const VIEWS={};let CUR='accueil',renderPending=false,deferRender=false;
 function route(){if(typeof tipHide==='function')tipHide();const h=(location.hash||'').slice(1);const prev=CUR;CUR=VIEWS[h]?h:'accueil';if(prev!==CUR&&typeof onLeave==='function')onLeave(prev);$('#rail')?.classList.remove('open');$$('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.r===CUR));
  const c=$('#crumb');if(c)c.textContent=NAV.find(n=>n[0]===CUR)?.[1]||'';$('.content')?.classList.toggle('full',CUR==='infra');$('.content')?.classList.toggle('flush',CUR==='chat');
@@ -193,7 +210,7 @@ function renderShell(){
   <button class="btn ghost" id="meBtn"></button></header>
   <main class="content"><div id="view" class="view wrap"></div></main></div></div>`);
   $('#menuBtn').onclick=()=>$('#rail').classList.toggle('open');$('#bellBtn').onclick=toggleBell;
-  $('#meBtn').onclick=async()=>{if(await confirmBox(`Tu es connecté en tant que ${ME.name}. Changer d'identité ?`,'Changer')){if(typeof leaveCall==='function')await leaveCall();ls.set(KEY('me'),null);ME=null;location.reload()}};
+  $('#meBtn').onclick=async()=>{if(await confirmBox(`Tu es connecté en tant que ${ME.name}. Changer d'identité ?`,'Changer')){if(typeof leaveCall==='function')await leaveCall();await goOffline();ss.set(KEY('me'),null);ME=null;location.reload()}};
  }
  updateShellBits();setLive(LIVE);
 }
@@ -206,7 +223,7 @@ function updateShellBits(){
  const P=plotInfo();const bn=$('#brandName');if(bn){bn.textContent=P.name;$('#brandSub').textContent=`${P.promo?P.promo+' · ':'BTS SIO SISR · '}${P.net||''}`;document.title=P.name}
  const bc=$('#bellCount');bc.hidden=!u;bc.textContent=u>9?'9+':u;
  $('#meBtn').innerHTML=`${avatar(ME.name,ME.color)}<span class="small" style="font-weight:600">${esc(ME.name)}</span>`;
- const on=$('#online');if(on)on.innerHTML=`<div class="tiny" style="color:var(--rail-muted);margin-bottom:8px">Le groupe</div>`+members().map(m=>`<span class="on-m ${isOnline(m.id)||m.id===ME.id?'is-on':''}" title="${esc(m.name)} · ${isOnline(m.id)||m.id===ME.id?'en ligne':'hors ligne'}">${avatar(m.name,m.color)}<i></i></span>`).join('');
+ const on=$('#online');if(on)on.innerHTML=`<div class="tiny" style="color:var(--rail-muted);margin-bottom:8px">Le groupe</div>`+members().map(m=>`<span class="on-m ${presCls(m.id)}" title="${esc(m.name)} · ${presLabel(m.id)}">${avatar(m.name,m.color)}<i></i></span>`).join('');
  if(typeof callPillUpdate==='function')callPillUpdate();
 }
 
@@ -257,3 +274,7 @@ function newSpace(){if(!DBH||LOCAL)return toast('Il faut la base partagée pour 
   switchSpace(id)}catch(e){console.error(e);toast('Création impossible ('+(e.code||e.message)+').','bad')}}})}
 async function ensureSpaceRegistered(){if(!FIRE)return;try{const r=DBH.collection('spaces').doc(SPACE);const s=await r.get();if(!s.exists){const P=plotInfo();await r.set({name:P.name,promo:P.promo||'BTS SIO SISR',plot:P.num||(SPACE==='p7'?7:null),createdAt:Date.now()})}}catch(e){}}
 function missingSpace(){const box=$('#whoGrid')||$('#view');if(!box)return;box.innerHTML=`<div class="empty small" style="color:inherit">Cet espace n'existe pas ou a été supprimé.<br><button class="btn sm" style="margin-top:10px" onclick="ls.set('p7-space','p7');location.href=location.pathname">Revenir au Plot virtuel 7</button></div>`}
+
+/* Bibliothèques chargées seulement quand on en a besoin (site plus rapide à ouvrir) */
+const LIBS={jspdf:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',jszip:'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'};
+function need(k){if((k==='jspdf'&&window.jspdf)||(k==='jszip'&&window.JSZip))return Promise.resolve();return new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=LIBS[k];sc.onload=res;sc.onerror=rej;document.head.appendChild(sc)})}

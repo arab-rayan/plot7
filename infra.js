@@ -311,7 +311,7 @@ async function exportView(fmt){$('.export')?.classList.remove('open');const v=is
  if(fmt==='svg')return saveFile(fn+'.svg',new Blob([R.svg],{type:'image/svg+xml'}));
  let im;try{im=await svgToImg(R)}catch(e){toast('Conversion de l\'image impossible.','bad');return}
  if(fmt==='png')return saveFile(fn+'.png',im.blob);
- if(!window.jspdf){toast('Le module PDF n\'a pas pu se charger.','bad');return}
+ try{await need('jspdf')}catch(e){}if(!window.jspdf){toast('Le module PDF n\'a pas pu se charger.','bad');return}
  const doc=new jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});const PW=297,PH=210;
  const band=t=>{doc.setFillColor(15,27,51);doc.rect(0,0,PW,18,'F');doc.setTextColor(255,255,255);doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(t,10,11.5);doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(`${new Date().toLocaleDateString('fr-FR')} · ${ME.name}`,PW-10,11.5,{align:'right'})};
  band(`Mairie de Veau — ${name} — ${vname}`);const maxW=PW-20,maxH=PH-40;const r=Math.min(maxW/im.w,maxH/im.h);doc.addImage(im.jpg,'JPEG',(PW-im.w*r)/2,24+(maxH-im.h*r)/2,im.w*r,im.h*r);

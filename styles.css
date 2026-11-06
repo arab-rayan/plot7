@@ -643,3 +643,5 @@ details summary{cursor:pointer;color:var(--muted)}
 .remote-card{margin-top:18px}
 .att.remote{cursor:default;border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
 .gate~.overlay,body:has(#gate) .overlay{z-index:110}body:has(#gate) .toasts{z-index:120}
+.on-m.is-away i{background:#f0a64a}
+.srv-list{display:grid;gap:14px}.srv-hero .srv-help{margin-top:14px}

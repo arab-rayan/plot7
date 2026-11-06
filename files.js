@@ -79,6 +79,6 @@ async function delFolder(p){const L=under(p);if(!await confirmBox(`Supprimer le 
  for(const f of L)await delFile(f.id,true);arr('folders').filter(d=>d.path===p||d.path.startsWith(p+'/')).forEach(d=>del('folders',d.id));logAct('a supprimé le dossier',p,'fichiers')}
 async function newFolder(){const n=await promptBox('Nom du nouveau dossier');if(!n)return;const name=n.replace(/[\/\\]/g,'-');await ensureFolders([FL.path,name].filter(Boolean).join('/'));logAct('a créé le dossier',name,'fichiers');scheduleRender()}
 async function renameFile(id){const f=D.files.get(id);const n=await promptBox('Nouveau nom',f.name);if(!n||n===f.name)return;await put('files',id,{...stripId(f),name:n.replace(/[\/\\]/g,'-')},['a renommé',`${f.name} → ${n}`,'fichiers'])}
-async function zipFolder(p){if(!window.JSZip)return toast('Module zip indisponible.','bad');const L=under(p);if(!L.length)return toast('Dossier vide.');toast(`Préparation du zip (${L.length} fichiers)…`);
+async function zipFolder(p){try{await need('jszip')}catch(e){return toast('Module zip indisponible.','bad')}const L=under(p);if(!L.length)return toast('Dossier vide.');toast(`Préparation du zip (${L.length} fichiers)…`);
  const z=new JSZip();for(const f of L){const rel=((f.path||'').slice(p.length).replace(/^\//,'')+'/'+f.name).replace(/^\//,'');z.file(rel,await fileBlob(f.id))}
  saveFile((p.split('/').pop()||'fichiers')+'.zip',await z.generateAsync({type:'blob'}))}

@@ -31,7 +31,8 @@ const arr=c=>[...D[c].values()];
 const members=()=>D.meta.get('members')?.list||(SPACE==='p7'?DEFAULT_MEMBERS:[]);
 const member=id=>id==='all'?{id:'all',name:'Tout le groupe',color:'#64748b',role:''}:(members().find(m=>m.id===id)||{id:'',name:'Non attribué',color:'#94a3b8',role:''});
 const initials=n=>(n||'?').replace(/\(.*\)/,'').split(/\s+/).filter(x=>/[\p{L}\d]/u.test(x[0]||'')).map(x=>x[0]).join('').slice(0,2).toUpperCase()||'?';
-const avatar=(name,color,cls='')=>`<span class="avatar ${cls}" style="background:${color||'#64748b'}" title="${esc(name)}">${esc(initials(name))}</span>`;
+const photoOf=name=>{try{return members().find(x=>x.name===name)?.photo||''}catch(e){return ''}};
+const avatar=(name,color,cls='')=>{const ph=photoOf(name);return ph?`<span class="avatar ph ${cls}" style="background:${color||'#64748b'} url('${ph}') center/cover" title="${esc(name)}"></span>`:`<span class="avatar ${cls}" style="background:${color||'#64748b'}" title="${esc(name)}">${esc(initials(name))}</span>`};
 const who=id=>{const m=member(id);return `<span class="who">${avatar(m.name,m.color)}${esc(m.name)}</span>`};
 const colorOf=name=>{const m=members().find(x=>x.name===name);if(m)return m.color;let h=0;for(const c of name||'')h=(h*31+c.charCodeAt(0))%360;return `hsl(${h} 55% 48%)`};
 const pveCfg=()=>({...DEFAULT_PVE,...(D.meta.get('pve')||{})});
@@ -212,7 +213,7 @@ function renderShell(){
   <div class="scrim" id="scrim"></div><nav class="tabbar" id="tabbar" aria-label="Navigation principale"></nav>`);
   $('#scrim').onclick=()=>$('#rail').classList.remove('open');
   $('#menuBtn').onclick=()=>$('#rail').classList.toggle('open');$('#bellBtn').onclick=toggleBell;
-  $('#meBtn').onclick=async()=>{if(await confirmBox(`Tu es connecté en tant que ${ME.name}. Changer d'identité ?`,'Changer')){if(typeof leaveCall==='function')await leaveCall();await goOffline();ss.set(KEY('me'),null);ME=null;location.reload()}};
+  $('#meBtn').onclick=meMenu;
  }
  updateShellBits();setLive(LIVE);
 }
@@ -286,3 +287,13 @@ function need(k){if((k==='jspdf'&&window.jspdf)||(k==='jszip'&&window.JSZip))ret
 /* Téléphone : cacher la barre du bas quand le clavier est ouvert */
 document.addEventListener('focusin',e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))document.body.classList.add('kb')});
 document.addEventListener('focusout',()=>setTimeout(()=>{if(!/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||''))document.body.classList.remove('kb')},120));
+
+/* ===================== Photo de profil ===================== */
+function meMenu(){const o=openModal('Mon profil',`<div class="me-box"><label class="me-pic" title="Changer ma photo">${avatar(ME.name,ME.color,'xl')}<span class="me-cam">${ui('image',16)}</span><input type="file" accept="image/*" hidden onchange="setPhoto(ME.id,this.files[0])"></label>
+ <div><h3 style="margin:0">${esc(ME.name)}</h3><p class="small muted" style="margin:4px 0 12px">Touche ta photo pour la changer.</p><div class="row" style="gap:8px">${members().find(m=>m.id===ME.id)?.photo?`<button class="btn sm" onclick="setPhoto(ME.id,null)">${ui('trash',14)} Retirer la photo</button>`:''}<button class="btn sm" id="switchMe">Changer d'identité</button></div></div></div>`);
+ $('#switchMe',o).onclick=async()=>{closeModal();if(typeof leaveCall==='function')await leaveCall();await goOffline();ss.set(KEY('me'),null);ME=null;location.reload()}}
+/* recadre au centre en 160×160, JPEG léger (~10 Ko), stocké avec le membre */
+function squarePhoto(file){return new Promise((res,rej)=>{const img=new Image();const u=URL.createObjectURL(file);img.onload=()=>{const S=160,c=document.createElement('canvas');c.width=c.height=S;const k=Math.min(img.width,img.height);c.getContext('2d').drawImage(img,(img.width-k)/2,(img.height-k)/2,k,k,0,0,S,S);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',0.82))};img.onerror=()=>{URL.revokeObjectURL(u);rej()};img.src=u})}
+async function setPhoto(id,file){const L=clone(members());const m=L.find(x=>x.id===id);if(!m)return;
+ if(file){if(!/^image\//.test(file.type))return toast('Choisis une image.','bad');try{m.photo=await squarePhoto(file)}catch(e){return toast('Image illisible.','bad')}}else delete m.photo;
+ closeModal();await put('meta','members',{list:L},[file?'a changé sa photo de profil':'a retiré sa photo de profil','','equipe']);toast(file?'Photo mise à jour.':'Photo retirée.');renderShell()}

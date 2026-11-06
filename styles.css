@@ -764,3 +764,11 @@ details summary{cursor:pointer;color:var(--muted)}
  .chat-head b{font-size:16px}
 }
 .content.flush .rooms{padding:18px 14px calc(var(--tabbar-h,0px) + 24px)}
+/* Photos de profil */
+.avatar.ph{color:transparent}
+.me-box{display:flex;gap:18px;align-items:center}
+.me-pic,.pic-edit{position:relative;cursor:pointer;flex:none}
+.me-cam{position:absolute;right:-2px;bottom:-2px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:#fff;box-shadow:0 0 0 3px var(--surface)}
+.me-cam.sm{width:18px;height:18px;right:-4px;bottom:-4px;top:auto;left:auto;box-shadow:0 0 0 2px var(--surface)}
+.pic-edit i{z-index:1}
+.pic-edit .me-cam.sm{right:auto;left:-4px}

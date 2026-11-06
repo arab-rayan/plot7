@@ -293,7 +293,39 @@ function meMenu(){const o=openModal('Mon profil',`<div class="me-box"><label cla
  <div><h3 style="margin:0">${esc(ME.name)}</h3><p class="small muted" style="margin:4px 0 12px">Touche ta photo pour la changer.</p><div class="row" style="gap:8px">${members().find(m=>m.id===ME.id)?.photo?`<button class="btn sm" onclick="setPhoto(ME.id,null)">${ui('trash',14)} Retirer la photo</button>`:''}<button class="btn sm" id="switchMe">Changer d'identité</button></div></div></div>`);
  $('#switchMe',o).onclick=async()=>{closeModal();if(typeof leaveCall==='function')await leaveCall();await goOffline();ss.set(KEY('me'),null);ME=null;location.reload()}}
 /* recadre au centre en 160×160, JPEG léger (~10 Ko), stocké avec le membre */
-function squarePhoto(file){return new Promise((res,rej)=>{const img=new Image();const u=URL.createObjectURL(file);img.onload=()=>{const S=160,c=document.createElement('canvas');c.width=c.height=S;const k=Math.min(img.width,img.height);c.getContext('2d').drawImage(img,(img.width-k)/2,(img.height-k)/2,k,k,0,0,S,S);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',0.82))};img.onerror=()=>{URL.revokeObjectURL(u);rej()};img.src=u})}
-async function setPhoto(id,file){const L=clone(members());const m=L.find(x=>x.id===id);if(!m)return;
- if(file){if(!/^image\//.test(file.type))return toast('Choisis une image.','bad');try{m.photo=await squarePhoto(file)}catch(e){return toast('Image illisible.','bad')}}else delete m.photo;
- closeModal();await put('meta','members',{list:L},[file?'a changé sa photo de profil':'a retiré sa photo de profil','','equipe']);toast(file?'Photo mise à jour.':'Photo retirée.');renderShell()}
+function squarePhoto_unused(file){return new Promise((res,rej)=>{const img=new Image();const u=URL.createObjectURL(file);img.onload=()=>{const S=160,c=document.createElement('canvas');c.width=c.height=S;const k=Math.min(img.width,img.height);c.getContext('2d').drawImage(img,(img.width-k)/2,(img.height-k)/2,k,k,0,0,S,S);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',0.82))};img.onerror=()=>{URL.revokeObjectURL(u);rej()};img.src=u})}
+async function setPhoto(id,file){if(file){if(!/^image\//.test(file.type))return toast('Choisis une image.','bad');return openCropper(id,file)}
+ const L=clone(members());const m=L.find(x=>x.id===id);if(!m)return;delete m.photo;closeModal();await put('meta','members',{list:L},['a retiré sa photo de profil','','equipe']);toast('Photo retirée.');renderShell()}
+async function savePhoto(id,data){const L=clone(members());const m=L.find(x=>x.id===id);if(!m)return;m.photo=data;closeModal();
+ await put('meta','members',{list:L},[id===ME.id?'a changé sa photo de profil':`a changé la photo de ${m.name}`,'','equipe']);toast('Photo mise à jour.');renderShell()}
+
+/* Recadrage : glisser pour déplacer, pincer / molette / curseur pour zoomer, bouton pour pivoter */
+function openCropper(id,file){const img=new Image();const url=URL.createObjectURL(file);
+ img.onerror=()=>{URL.revokeObjectURL(url);toast('Image illisible.','bad')};
+ img.onload=()=>{const S=300;const C={rot:0,z:1,x:0,y:0};
+  const o=openModal('Recadrer la photo',`<div class="crop-wrap"><div class="crop-stage" id="cropStage"><canvas id="cropCv"></canvas><div class="crop-mask"></div></div>
+   <div class="crop-tools"><button type="button" class="btn icon" id="cZo" title="Dézoomer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
+   <input type="range" id="cZ" min="1" max="5" step="0.01" value="1" aria-label="Zoom"><button type="button" class="btn icon" id="cZi" title="Zoomer">${ui('plus',18)}</button><button type="button" class="btn icon" id="cRot" title="Pivoter">${ui('rotate',18)}</button></div>
+   <p class="tiny muted" style="text-align:center;margin:6px 0 0">Glisse la photo pour la placer · pince ou utilise le curseur pour zoomer</p>
+   <footer class="row" style="margin-top:14px;justify-content:space-between"><label class="btn ghost">${ui('image',16)} Autre image<input type="file" accept="image/*" hidden id="cOther"></label><span class="row" style="gap:8px"><button type="button" class="btn" data-close2>Annuler</button><button type="button" class="btn primary" id="cSave">Enregistrer</button></span></footer></div>`);
+  const cv=$('#cropCv',o),st=$('#cropStage',o),dpr=Math.min(2,window.devicePixelRatio||1);cv.width=cv.height=S*dpr;
+  const dims=()=>C.rot%180?[img.height,img.width]:[img.width,img.height];
+  const scale=()=>{const [w,h]=dims();return S/Math.min(w,h)*C.z};
+  const clamp=()=>{const [w,h]=dims(),k=scale();const mx=Math.max(0,(w*k-S)/2),my=Math.max(0,(h*k-S)/2);C.x=Math.max(-mx,Math.min(mx,C.x));C.y=Math.max(-my,Math.min(my,C.y))};
+  const draw=(ctx,size)=>{const f=size/S;ctx.fillStyle='#fff';ctx.fillRect(0,0,size,size);ctx.save();ctx.translate(size/2+C.x*f,size/2+C.y*f);ctx.rotate(C.rot*Math.PI/180);const k=scale()*f;ctx.scale(k,k);ctx.drawImage(img,-img.width/2,-img.height/2);ctx.restore()};
+  const paint=()=>{clamp();draw(cv.getContext('2d'),cv.width);$('#cZ',o).value=C.z};
+  const zoomTo=(z,cx=0,cy=0)=>{const nz=Math.max(1,Math.min(5,z));const r=nz/C.z;C.x=cx+(C.x-cx)*r;C.y=cy+(C.y-cy)*r;C.z=nz;paint()};
+  const P=new Map();let last=null;
+  st.onpointerdown=e=>{st.setPointerCapture(e.pointerId);P.set(e.pointerId,{x:e.clientX,y:e.clientY});last=null};
+  st.onpointermove=e=>{if(!P.has(e.pointerId))return;const prev=P.get(e.pointerId);P.set(e.pointerId,{x:e.clientX,y:e.clientY});const ratio=S/st.clientWidth;
+   if(P.size===1){C.x+=(e.clientX-prev.x)*ratio;C.y+=(e.clientY-prev.y)*ratio;paint()}
+   else if(P.size===2){const [a,b]=[...P.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);if(last)zoomTo(C.z*d/last);last=d}};
+  st.onpointerup=st.onpointercancel=e=>{P.delete(e.pointerId);last=null};
+  st.onwheel=e=>{e.preventDefault();const r=st.getBoundingClientRect(),ratio=S/r.width;zoomTo(C.z*Math.exp(-e.deltaY*0.0015),(e.clientX-r.left)*ratio-S/2,(e.clientY-r.top)*ratio-S/2)};
+  $('#cZ',o).oninput=e=>zoomTo(+e.target.value);$('#cZi',o).onclick=()=>zoomTo(C.z*1.2);$('#cZo',o).onclick=()=>zoomTo(C.z/1.2);
+  $('#cRot',o).onclick=()=>{C.rot=(C.rot+90)%360;C.x=C.y=0;paint()};
+  $('#cOther',o).onchange=e=>{const f=e.target.files[0];if(f){URL.revokeObjectURL(url);openCropper(id,f)}};
+  $('[data-close2]',o).onclick=()=>{URL.revokeObjectURL(url);closeModal()};
+  $('#cSave',o).onclick=()=>{const out=document.createElement('canvas');out.width=out.height=256;draw(out.getContext('2d'),256);URL.revokeObjectURL(url);savePhoto(id,out.toDataURL('image/jpeg',0.85))};
+  paint()};
+ img.src=url}

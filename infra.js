@@ -362,7 +362,7 @@ function renderTech(){const s=IW;const host=$('#techHost');if(!host||!s)return;
  if(fw)t+=N('parefeu',FX,FY,60,fw,fw.name+(fw.os?' · '+fw.os:''),fw.ip||'',(fw.role||'').match(/LAN [\d.]+/)?.[0]||'',true);
  vms.forEach((e,i)=>t+=N(e.type==='vm'?(/windows 11|ubuntu|client/i.test(e.os+e.role)?'poste':'serveur'):'serveur',vx[i],rowY,60,e,e.os||e.name,e.ip||'',e.name));
  t+=`<text x="${RX+RW/2}" y="${top+zoneH-14}" text-anchor="middle" font-size="11" fill="var(--muted)">Machines virtuelles hébergées sur ${esc(srv.map(e=>e.name).join(' / ')||'le serveur')}</text>`;
- host.innerHTML=`<svg viewBox="0 0 1200 ${H}" class="tech-svg" role="img" aria-label="Schéma technique du plot">${t}</svg>
+ host.innerHTML=`<p class="tech-hint tiny muted">${ui('fit',12)} Fais glisser pour parcourir le schéma, pince pour zoomer.</p><div class="tech-scroll"><svg viewBox="0 0 1200 ${H}" class="tech-svg" role="img" aria-label="Schéma technique du plot">${t}</svg></div>
  <div class="tech-leg small"><span><i style="background:var(--line-2)"></i> câble physique</span><span><i style="background:${c0}"></i> ${esc(b0.label||'vmbr0')} : ${esc(b0.name||'')}</span><span><i style="background:${c1}"></i> ${esc(b1.label||'vmbr1')} : ${esc(b1.name||'')}</span><span><b style="color:var(--warn)">?</b> proposition à valider</span><span class="muted">Clique sur une machine pour la modifier.</span></div>`;
  $$('.tnode[data-id]',host).forEach(g=>{if(g.dataset.id)g.onclick=()=>{IX.view='topo';IX.sel={kind:'eq',id:g.dataset.id};renderView()}});
 }

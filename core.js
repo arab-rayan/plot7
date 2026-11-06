@@ -208,7 +208,9 @@ function renderShell(){
   <button class="btn sm primary" id="installBtn" hidden onclick="installApp()">${ui('download',15)} Installer l'app</button>
   <div class="bell" id="bellHost"><button class="btn ghost icon" id="bellBtn" aria-label="Notifications">${ui('bell')}<span class="count" id="bellCount" hidden></span></button></div>
   <button class="btn ghost" id="meBtn"></button></header>
-  <main class="content"><div id="view" class="view wrap"></div></main></div></div>`);
+  <main class="content"><div id="view" class="view wrap"></div></main></div></div>
+  <div class="scrim" id="scrim"></div><nav class="tabbar" id="tabbar" aria-label="Navigation principale"></nav>`);
+  $('#scrim').onclick=()=>$('#rail').classList.remove('open');
   $('#menuBtn').onclick=()=>$('#rail').classList.toggle('open');$('#bellBtn').onclick=toggleBell;
   $('#meBtn').onclick=async()=>{if(await confirmBox(`Tu es connecté en tant que ${ME.name}. Changer d'identité ?`,'Changer')){if(typeof leaveCall==='function')await leaveCall();await goOffline();ss.set(KEY('me'),null);ME=null;location.reload()}};
  }
@@ -221,6 +223,8 @@ function updateShellBits(){
  const badge=r=>r==='taches'&&mineOpen?`<span class="badge" title="Tes tâches ouvertes">${mineOpen}</span>`:r==='chat'&&chatN?`<span class="badge hot" title="Messages non lus">${chatN>99?'99+':chatN}</span>`:r==='appel'&&inCall?`<span class="badge live-b" title="En appel">${inCall}</span>`:'';
  $('#nav').innerHTML=NAV.map(([r,l,i])=>`<a href="#${r}" data-r="${r}" class="${r===CUR?'active':''}">${ui(i)}<span>${l}</span>${badge(r)}</a>`).join('');
  const P=plotInfo();const bn=$('#brandName');if(bn){bn.textContent=P.name;$('#brandSub').textContent=`${P.promo?P.promo+' · ':'BTS SIO SISR · '}${P.net||''}`;document.title=P.name}
+ const tb=$('#tabbar');if(tb){const T=[['accueil','Accueil','home'],['chat','Discussion','chat'],['appel','Appel','phone'],['fichiers','Fichiers','folder']];const more=!T.some(t=>t[0]===CUR);
+  tb.innerHTML=T.map(([r,l,i])=>`<a href="#${r}" class="${r===CUR?'on':''}">${ui(i,22)}<span>${l}</span>${badge(r)}</a>`).join('')+`<button type="button" class="${more?'on':''}" onclick="$('#rail').classList.add('open')">${ui('menu',22)}<span>Plus</span>${(mineOpen&&!more)?'<i class="dotb"></i>':''}</button>`}
  const bc=$('#bellCount');bc.hidden=!u;bc.textContent=u>9?'9+':u;
  $('#meBtn').innerHTML=`${avatar(ME.name,ME.color)}<span class="small" style="font-weight:600">${esc(ME.name)}</span>`;
  const on=$('#online');if(on)on.innerHTML=`<div class="tiny" style="color:var(--rail-muted);margin-bottom:8px">Le groupe</div>`+members().map(m=>`<span class="on-m ${presCls(m.id)}" title="${esc(m.name)} · ${presLabel(m.id)}">${avatar(m.name,m.color)}<i></i></span>`).join('');
@@ -278,3 +282,7 @@ function missingSpace(){const box=$('#whoGrid')||$('#view');if(!box)return;box.i
 /* Bibliothèques chargées seulement quand on en a besoin (site plus rapide à ouvrir) */
 const LIBS={jspdf:'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',jszip:'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'};
 function need(k){if((k==='jspdf'&&window.jspdf)||(k==='jszip'&&window.JSZip))return Promise.resolve();return new Promise((res,rej)=>{const sc=document.createElement('script');sc.src=LIBS[k];sc.onload=res;sc.onerror=rej;document.head.appendChild(sc)})}
+
+/* Téléphone : cacher la barre du bas quand le clavier est ouvert */
+document.addEventListener('focusin',e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))document.body.classList.add('kb')});
+document.addEventListener('focusout',()=>setTimeout(()=>{if(!/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||''))document.body.classList.remove('kb')},120));

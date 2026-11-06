@@ -30,24 +30,25 @@ VIEWS.chat=function(){
    ${CHANS.map(([c,l,d])=>`<button class="chan ${CH.chan===c?'on':''}" onclick="setChan('${c}')"><span class="hash">#</span><span style="flex:1;min-width:0"><b>${l}</b><small>${d}</small></span><span class="badge hot" data-cu="${c}" ${chanUnread(c)&&CH.chan!==c?'':'hidden'}>${chanUnread(c)}</span></button>`).join('')}
    <h3 class="tiny muted" style="margin:18px 8px 8px;text-transform:uppercase;letter-spacing:.06em">En ligne</h3><div id="chatOnline">${onlineList()}</div></aside>
   <section class="chat-main dropzone" id="chatDz"><header class="chat-head"><div><b># ${esc(CHANS.find(c=>c[0]===CH.chan)[1])}</b><span class="tiny muted"> · ${esc(CHANS.find(c=>c[0]===CH.chan)[2])}</span></div><div class="row" style="gap:6px"><a class="btn sm" href="#appel">${ui('phone',14)} Appel</a></div></header>
+   <div class="chan-tabs" role="tablist">${CHANS.map(([c,l])=>`<button role="tab" class="${CH.chan===c?'on':''}" onclick="setChan('${c}')"># ${l}<span class="badge hot" data-cu2="${c}" ${chanUnread(c)&&CH.chan!==c?'':'hidden'}>${chanUnread(c)}</span></button>`).join('')}</div>
    <div class="msgs" id="msgs">${msgsHtml()}</div>
    <form class="composer" id="composer"><label class="btn ghost icon" title="Joindre un fichier">${ui('attach',18)}<input type="file" multiple hidden onchange="chatAttach(this.files);this.value=''"></label>
-    <textarea id="msgIn" rows="1" placeholder="Écris à #${esc(CHANS.find(c=>c[0]===CH.chan)[1])}… (Entrée pour envoyer, Maj+Entrée pour aller à la ligne)"></textarea><button class="btn primary icon" title="Envoyer">${ui('send',18)}</button></form>
+    <textarea id="msgIn" rows="1" placeholder="${matchMedia('(max-width:860px)').matches?'Message #'+esc(CHANS.find(c=>c[0]===CH.chan)[1]):'Écris à #'+esc(CHANS.find(c=>c[0]===CH.chan)[1])+'… (Entrée pour envoyer, Maj+Entrée pour aller à la ligne)'}" enterkeyhint="send"></textarea><button class="btn primary icon" title="Envoyer">${ui('send',18)}</button></form>
    <div class="drop-hint">${ui('upload',30)}<b>Dépose pour envoyer dans la discussion</b></div></section></div>`;
  const ta=$('#msgIn');const draft=ls.get(KEY('draft-')+CH.chan,'');ta.value=draft;autoGrow(ta);
  ta.oninput=()=>{autoGrow(ta);ls.set(KEY('draft-')+CH.chan,ta.value)};
- ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();sendMsg()}};
+ const touch=matchMedia('(pointer:coarse)').matches;ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&!touch){e.preventDefault();sendMsg()}};
  ta.onpaste=e=>{const fs=[...(e.clipboardData?.files||[])];if(fs.length){e.preventDefault();chatAttach(fs)}};
- $('#composer').onsubmit=e=>{e.preventDefault();sendMsg()};
+ $('#composer').onsubmit=e=>{e.preventDefault();sendMsg();if(touch)ta.focus()};
  const dz=$('#chatDz');dz.ondragover=e=>{if(![...e.dataTransfer.types].includes('Files'))return;e.preventDefault();dz.classList.add('over')};dz.ondragleave=e=>{if(!dz.contains(e.relatedTarget))dz.classList.remove('over')};dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');chatAttach([...e.dataTransfer.files])};
- scrollMsgs(true);loadThumbs();if(matchMedia('(pointer:fine)').matches)ta.focus();
+ bindSwipe($('#msgs'));scrollMsgs(true);loadThumbs();if(matchMedia('(pointer:fine)').matches)ta.focus();
 };
 const onlineList=()=>members().filter(m=>presState(m.id)!=='off').map(m=>`<div class="row small" style="gap:8px;padding:4px 8px;flex-wrap:nowrap" title="${esc(presLabel(m.id))}"><span class="on-m ${presCls(m.id)}">${avatar(m.name,m.color)}<i></i></span>${esc(m.name)}${callPeople().some(p=>p.uid===m.id)?` <span class="tiny" style="color:var(--ok)">${ui('phone',12)}</span>`:''}</div>`).join('');
 function autoGrow(t){t.style.height='auto';t.style.height=Math.min(180,t.scrollHeight)+'px'}
 function scrollMsgs(force){const b=$('#msgs');if(!b)return;if(force||b.scrollHeight-b.scrollTop-b.clientHeight<160)b.scrollTop=b.scrollHeight}
 function chatLive(){const b=$('#msgs');if(!b){renderView();return}const near=b.scrollHeight-b.scrollTop-b.clientHeight<160;b.innerHTML=msgsHtml();if(near)b.scrollTop=b.scrollHeight;loadThumbs();
- if(!document.hidden)markRead(CH.chan);CHANS.forEach(([c])=>{const el=$(`[data-cu="${c}"]`);if(el){const n=chanUnread(c);el.hidden=!n||c===CH.chan;el.textContent=n}});const o=$('#chatOnline');if(o)o.innerHTML=onlineList()}
-function setChan(c){CH.chan=c;renderView()}
+ if(!document.hidden)markRead(CH.chan);CHANS.forEach(([c])=>{const n=chanUnread(c);$$(`[data-cu="${c}"],[data-cu2="${c}"]`).forEach(el=>{el.hidden=!n||c===CH.chan;el.textContent=n})});const o=$('#chatOnline');if(o)o.innerHTML=onlineList()}
+function setChan(c){CH.chan=c;renderView();updateShellBits();$('.chan-tabs .on')?.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'})}
 async function sendMsg(extra){const ta=$('#msgIn');const text=(ta?.value||'').trim();if(!text&&!extra)return;
  const m={uid:ME.id,name:ME.name,text:extra?(extra.text||''):text,ch:CH.chan,ts:Date.now(),...(extra?.file?{file:extra.file}:{}),...(extra?.remote?{remote:extra.remote}:{})};
  if(!extra){ta.value='';autoGrow(ta);ls.set(KEY('draft-')+CH.chan,'')}
@@ -58,3 +59,6 @@ async function chatAttach(files){files=[...files];if(!files.length||LOCAL)return
  CH.chan=ch}
 async function delMsg(id){if(!await confirmBox('Supprimer ce message pour tout le monde ?'))return;D.chat.delete(id);chatLive();ref('chat').doc(id).delete().catch(deny)}
 const remoteHtml=(m,mine)=>{const c=(m.remote.code||'').replace(/(\d{4})(?=\d)/g,'$1 ');const old=Date.now()-m.ts>5*60000;return `<div class="att remote"><div class="row" style="gap:10px;flex-wrap:nowrap">${ui('terminal',20)}<div><b class="small">${mine?'Tu demandes':'Demande'} une prise en main à distance</b><div class="mono" style="font-size:16px;letter-spacing:.06em">${esc(c)}</div><span class="tiny muted">${old?'Code expiré (plus de 5 min) : redemande-en un.':'Code valable 5 minutes.'}</span></div></div>${!mine&&!old?`<button class="btn sm primary" style="margin-top:8px" onclick="giveRemote('${esc(m.remote.code)}')">${ui('ext',14)} Prendre la main</button>`:''}</div>`};
+/* Glisser à gauche / à droite sur les messages pour changer de salon (téléphone) */
+function bindSwipe(el){if(!el)return;let x0=null,y0=null;el.addEventListener('touchstart',e=>{const t=e.touches[0];x0=t.clientX;y0=t.clientY},{passive:true});
+ el.addEventListener('touchend',e=>{if(x0==null)return;const t=e.changedTouches[0];const dx=t.clientX-x0,dy=t.clientY-y0;x0=null;if(Math.abs(dx)<70||Math.abs(dy)>Math.abs(dx)*0.6)return;const i=CHANS.findIndex(c=>c[0]===CH.chan);const j=i+(dx<0?1:-1);if(j>=0&&j<CHANS.length)setChan(CHANS[j][0])},{passive:true})}

@@ -1,12 +1,12 @@
 /* ===================== DISCUSSION ===================== */
 const CHANS=[['general','Général','Tout le reste'],['serveur','Serveur et VM','Proxmox, pfSense, pannes'],['cours','Cours et docs','Consignes, procédures, oral']];
 let CH={chan:'general'};
-const readMap=()=>ls.get('p7-chat-read-'+(ME?.id||''),{});
-const markRead=ch=>{const m=readMap();m[ch]=Date.now();ls.set('p7-chat-read-'+ME.id,m)};
+const readMap=()=>ls.get(KEY('chat-read-')+(ME?.id||''),{});
+const markRead=ch=>{const m=readMap();m[ch]=Date.now();ls.set(KEY('chat-read-')+ME.id,m)};
 const chanUnread=ch=>{const r=readMap()[ch]||BOOT-864e5;return arr('chat').filter(m=>(m.ch||'general')===ch&&m.uid!==ME?.id&&m.ts>r).length};
 function chatUnread(){if(!ME)return 0;return CHANS.reduce((s,[c])=>s+(CUR==='chat'&&CH.chan===c&&!document.hidden?0:chanUnread(c)),0)}
 function onChatAdded(m){if(!ME||m.uid===ME.id||m.ts<BOOT)return;const here=CUR==='chat'&&CH.chan===(m.ch||'general')&&!document.hidden;
- if(!here){const ch=CHANS.find(c=>c[0]===(m.ch||'general'));toast(`${m.name}${ch&&ch[0]!=='general'?' (#'+ch[1]+')':''} : ${m.file?'📎 '+m.file.name:trunc(m.text,80)}`,'msg','chat','Répondre');notifyOS(`${m.name} · Plot 7`,m.file?'📎 '+m.file.name:trunc(m.text,120),'chat')}}
+ if(!here){const ch=CHANS.find(c=>c[0]===(m.ch||'general'));const what=m.remote?'demande de l\'aide à distance (prise en main)':m.file?'📎 '+m.file.name:trunc(m.text,80);toast(`${m.name}${ch&&ch[0]!=='general'?' (#'+ch[1]+')':''} : ${what}`,m.remote?'call':'msg','chat',m.remote?'Aider':'Répondre');notifyOS(`${m.name} · ${plotInfo().name}`,what,'chat')}}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&CUR==='chat'&&ME){markRead(CH.chan);updateShellBits()}});
 
 const linkify=s=>esc(s).replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g,'<br>');
@@ -16,7 +16,7 @@ function msgsHtml(){const L=arr('chat').filter(m=>(m.ch||'general')===CH.chan).s
  for(const m of L){const d=new Date(m.ts).toDateString();if(d!==day){day=d;out+=`<div class="day-sep"><span>${new Date(m.ts).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span></div>`;prev=null}
   const u=member(m.uid);const cont=prev&&prev.uid===m.uid&&m.ts-prev.ts<5*60000;const mine=m.uid===ME.id;
   out+=`<div class="msg ${cont?'cont':''} ${mine?'mine':''}" data-id="${m.id}">${cont?`<span class="msg-t tiny">${fmtT(m.ts)}</span>`:avatar(u.name||m.name,u.color||colorOf(m.name))}<div class="msg-b">${cont?'':`<div class="msg-h"><b style="color:${u.color||'inherit'}">${esc(u.name||m.name)}</b><span class="tiny muted">${fmtT(m.ts)}</span></div>`}
-   ${m.text?`<div class="msg-txt">${linkify(m.text)}</div>`:''}${m.file?attHtml(m.file):''}</div>${mine?`<button class="btn sm ghost icon msg-del" title="Supprimer" onclick="delMsg('${m.id}')">${ui('trash',14)}</button>`:''}</div>`;prev=m}
+   ${m.text?`<div class="msg-txt">${linkify(m.text)}</div>`:''}${m.file?attHtml(m.file):''}${m.remote?remoteHtml(m,mine):''}</div>${mine?`<button class="btn sm ghost icon msg-del" title="Supprimer" onclick="delMsg('${m.id}')">${ui('trash',14)}</button>`:''}</div>`;prev=m}
  return out}
 function attHtml(f){const ok=D.files.has(f.id);const img=ok&&isImg(f)&&f.size<CHUNK;
  return `<div class="att ${img?'img':''}" onclick="${ok?`previewFile('${f.id}')`:''}">${img?`<img data-fid="${f.id}" alt="${esc(f.name)}">`:''}<span class="row" style="flex-wrap:nowrap;gap:8px">${fileIcon(f)}<span style="min-width:0"><b class="small">${esc(f.name)}</b><span class="tiny muted" style="display:block">${ok?fmtSize(f.size):'Fichier supprimé'}</span></span>${ok?`<button class="btn sm ghost icon" title="Télécharger" onclick="event.stopPropagation();downloadFile('${f.id}')">${ui('download',15)}</button>`:''}</span></div>`}
@@ -34,8 +34,8 @@ VIEWS.chat=function(){
    <form class="composer" id="composer"><label class="btn ghost icon" title="Joindre un fichier">${ui('attach',18)}<input type="file" multiple hidden onchange="chatAttach(this.files);this.value=''"></label>
     <textarea id="msgIn" rows="1" placeholder="Écris à #${esc(CHANS.find(c=>c[0]===CH.chan)[1])}… (Entrée pour envoyer, Maj+Entrée pour aller à la ligne)"></textarea><button class="btn primary icon" title="Envoyer">${ui('send',18)}</button></form>
    <div class="drop-hint">${ui('upload',30)}<b>Dépose pour envoyer dans la discussion</b></div></section></div>`;
- const ta=$('#msgIn');const draft=ls.get('p7-draft-'+CH.chan,'');ta.value=draft;autoGrow(ta);
- ta.oninput=()=>{autoGrow(ta);ls.set('p7-draft-'+CH.chan,ta.value)};
+ const ta=$('#msgIn');const draft=ls.get(KEY('draft-')+CH.chan,'');ta.value=draft;autoGrow(ta);
+ ta.oninput=()=>{autoGrow(ta);ls.set(KEY('draft-')+CH.chan,ta.value)};
  ta.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();sendMsg()}};
  ta.onpaste=e=>{const fs=[...(e.clipboardData?.files||[])];if(fs.length){e.preventDefault();chatAttach(fs)}};
  $('#composer').onsubmit=e=>{e.preventDefault();sendMsg()};
@@ -49,11 +49,12 @@ function chatLive(){const b=$('#msgs');if(!b){renderView();return}const near=b.s
  if(!document.hidden)markRead(CH.chan);CHANS.forEach(([c])=>{const el=$(`[data-cu="${c}"]`);if(el){const n=chanUnread(c);el.hidden=!n||c===CH.chan;el.textContent=n}});const o=$('#chatOnline');if(o)o.innerHTML=onlineList()}
 function setChan(c){CH.chan=c;renderView()}
 async function sendMsg(extra){const ta=$('#msgIn');const text=(ta?.value||'').trim();if(!text&&!extra)return;
- const m={uid:ME.id,name:ME.name,text:extra?(extra.text||''):text,ch:CH.chan,ts:Date.now(),...(extra?.file?{file:extra.file}:{})};
- if(!extra){ta.value='';autoGrow(ta);ls.set('p7-draft-'+CH.chan,'')}
+ const m={uid:ME.id,name:ME.name,text:extra?(extra.text||''):text,ch:CH.chan,ts:Date.now(),...(extra?.file?{file:extra.file}:{}),...(extra?.remote?{remote:extra.remote}:{})};
+ if(!extra){ta.value='';autoGrow(ta);ls.set(KEY('draft-')+CH.chan,'')}
  const id=uid('m');D.chat.set(id,{id,...m});chatLive();scrollMsgs(true);
  try{await ref('chat').doc(id).set(m)}catch(e){D.chat.delete(id);chatLive();deny(e)}}
 async function chatAttach(files){files=[...files];if(!files.length||LOCAL)return;const ch=CH.chan;
  for(const f of files){toast(`Envoi de ${f.name}…`);const meta=await uploadOne(f,'Discussion',true);if(meta)await sendMsg({file:{id:meta.id,name:meta.name,size:meta.size,type:meta.type}});setTimeout(uplRefresh,4200)}
  CH.chan=ch}
 async function delMsg(id){if(!await confirmBox('Supprimer ce message pour tout le monde ?'))return;D.chat.delete(id);chatLive();ref('chat').doc(id).delete().catch(deny)}
+const remoteHtml=(m,mine)=>{const c=(m.remote.code||'').replace(/(\d{4})(?=\d)/g,'$1 ');const old=Date.now()-m.ts>5*60000;return `<div class="att remote"><div class="row" style="gap:10px;flex-wrap:nowrap">${ui('terminal',20)}<div><b class="small">${mine?'Tu demandes':'Demande'} une prise en main à distance</b><div class="mono" style="font-size:16px;letter-spacing:.06em">${esc(c)}</div><span class="tiny muted">${old?'Code expiré (plus de 5 min) : redemande-en un.':'Code valable 5 minutes.'}</span></div></div>${!mine&&!old?`<button class="btn sm primary" style="margin-top:8px" onclick="giveRemote('${esc(m.remote.code)}')">${ui('ext',14)} Prendre la main</button>`:''}</div>`};

@@ -629,3 +629,17 @@ details summary{cursor:pointer;color:var(--muted)}
 .pve-wrap{flex:1;min-height:0;border-radius:var(--r);overflow:hidden;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow-1)}
 .pve-wrap:fullscreen{border-radius:0;border:0}
 .pve-wrap iframe{width:100%;height:100%;border:0;display:block;background:#fff}
+.tech-host{padding:12px}
+.tech-svg{width:100%;height:auto;display:block}
+.tech-svg .tnode[data-id]:hover use{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--accent) 60%,transparent))}
+.tech-leg{display:flex;flex-wrap:wrap;gap:16px;padding:10px 12px 4px;color:var(--ink-2)}
+.tech-leg i{display:inline-block;width:26px;height:6px;border-radius:4px;vertical-align:middle;margin-right:6px}
+.space-sw{display:flex;align-items:center;gap:8px;margin:16px 0 4px;color:#c9d3ea;font-size:13px}
+.space-sw select{flex:1;min-width:0;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:7px 10px}
+.space-sw select option{color:#0f1b33}
+.srv-hero{padding:22px}
+.srv-diag{margin-top:16px;border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+.srv-diag h3{display:flex;gap:8px;align-items:center;color:var(--bad);font-size:16px;margin-bottom:8px}
+.remote-card{margin-top:18px}
+.att.remote{cursor:default;border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.gate~.overlay,body:has(#gate) .overlay{z-index:110}body:has(#gate) .toasts{z-index:120}

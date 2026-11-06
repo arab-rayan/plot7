@@ -93,25 +93,25 @@ VIEWS.accueil=function(){
  const P=pveCfg();
  $('#view').innerHTML=`
  <section class="hero"><div class="hero-bg"></div><div class="hero-txt">
-  <div class="eyebrow light">${fmtDL(todayISO())} · Plot virtuel 7</div><h1>Bonjour ${esc(ME.name)}</h1>
+  <div class="eyebrow light">${fmtDL(todayISO())} · ${esc(plotInfo().name)}</div><h1>Bonjour ${esc(ME.name)}</h1>
   <p>${mine.length?`Tu as <b>${mine.length} tâche${mine.length>1?'s':''}</b> à faire.`:'Aucune tâche à ton nom pour l\'instant.'} ${cu?`<b>${cu} message${cu>1?'s':''}</b> non lu${cu>1?'s':''}.`:''} ${inCall.length?`<b>${inCall.map(p=>esc(p.name)).join(', ')}</b> ${inCall.length>1?'sont':'est'} en appel.`:''}</p>
   <div class="row" style="margin-top:18px"><a class="btn glass" href="#serveur">${ui('server',16)} Serveur</a><a class="btn glass" href="#chat">${ui('chat',16)} Discussion</a><a class="btn glass" href="#appel">${ui('phone',16)} ${inCall.length?'Rejoindre l\'appel':'Lancer un appel'}</a><a class="btn glass" href="#fichiers">${ui('folder',16)} Fichiers</a></div></div>
   <div class="hero-ring">${ringSvg(pct,132,'#ffffff',10)}<div class="hero-ring-txt"><b data-count="${Math.round(pct*100)}" data-suf="%">0%</b><span>des tâches terminées</span></div></div></section>
 
  <div class="grid g-3 stagger" style="margin-top:22px">
   <a class="card hover srv-mini" href="#serveur" style="--i:0"><div class="row between"><div class="row">${icon('serveur',40)}<div><b>Serveur Proxmox</b><div class="tiny muted mono">${esc(P.host)}:${P.port}</div></div></div>${svPill()}</div>
-   <p class="small muted" style="margin:12px 0 0">Ouvre l'écran Proxmox directement dans le site (réseau du lycée).</p></a>
+   <p class="small muted" style="margin:12px 0 0">Ouvre Proxmox dans sa fenêtre, à côté du site (réseau du lycée).</p></a>
   <div class="card" style="--i:1"><div class="card-head"><h2>Le groupe</h2><a class="small" href="#equipe">Équipe</a></div>
    <ul class="list">${members().map(m=>{const on=isOnline(m.id)||m.id===ME.id;const c=inCall.some(p=>p.uid===m.id);return `<li><span class="row" style="flex-wrap:nowrap;gap:10px">${avatar(m.name,m.color)}<b class="small">${esc(m.name)}${m.id===ME.id?' <span class="tiny muted">(moi)</span>':''}</b></span><span class="chip ${c?'acc':on?'ok':''}">${c?ui('phone',12)+' en appel':on?'en ligne':'hors ligne'}</span></li>`}).join('')}</ul></div>
   <div class="card" style="--i:2"><div class="card-head"><h2>Le plot en bref</h2><a class="small" href="#infra">Schéma</a></div>
-   <dl class="kv"><dt>Réseau</dt><dd class="mono">${esc(PLOT.net)}</dd><dt>Passerelle / DNS</dt><dd class="mono">${esc(PLOT.gw)}</dd><dt>Serveur (actuel)</dt><dd class="mono">${esc(P.host)}</dd><dt>Serveur (prévu)</dt><dd class="mono">${esc(P.target||'')}</dd></dl></div>
+   <dl class="kv"><dt>Réseau</dt><dd class="mono">${esc(plotInfo().net)}</dd><dt>Passerelle / DNS</dt><dd class="mono">${esc(plotInfo().gw)}</dd><dt>Serveur (actuel)</dt><dd class="mono">${esc(P.host)}</dd><dt>Serveur (prévu)</dt><dd class="mono">${esc(P.target||'')}</dd></dl></div>
  </div>
 
  <div class="grid g-2" style="margin-top:18px">
   <section class="card"><div class="card-head"><h2>Mes prochaines tâches</h2><button class="btn sm primary" onclick="editTask()">${ui('plus',14)} Tâche</button></div>
    ${mine.length?`<ul class="list">${mine.slice(0,6).map(t=>`<li><span class="row" style="flex-wrap:nowrap;gap:10px;min-width:0"><span class="dot" style="background:${TASK_ST.find(s=>s[0]===t.status)?.[2]}"></span><a href="javascript:void 0" onclick="editTask('${t.id}')">${esc(t.title)}</a></span><span class="row" style="gap:6px;flex-wrap:nowrap">${t.due?`<span class="chip ${t.due<todayISO()?'bad':''}">${fmtD(t.due)}</span>`:''}<button class="btn sm ghost" title="Marquer comme terminée" onclick="setTaskStatus('${t.id}','done')">✓</button></span></li>`).join('')}</ul>`:`<div class="empty small">Rien à ton nom. Crée une tâche ou prends-en une dans le tableau.</div>`}</section>
   <section class="card"><div class="card-head"><h2>Derniers messages</h2><a class="btn sm ghost" href="#chat">Ouvrir</a></div>
-   ${msgs.length?`<ul class="list feed">${msgs.map(m=>{const u=member(m.uid);return `<li>${avatar(u.name||m.name,u.color)}<span class="t small"><b>${esc(u.name||m.name)}</b> ${m.file?`${ui('attach',12)} ${esc(m.file.name)}`:esc(trunc(m.text,90))}</span><span class="tiny muted">${ago(m.ts)}</span></li>`}).join('')}</ul>`:'<div class="empty small">Pas encore de message.</div>'}</section>
+   ${msgs.length?`<ul class="list feed">${msgs.map(m=>{const u=member(m.uid);return `<li>${avatar(u.name||m.name,u.color)}<span class="t small"><b>${esc(u.name||m.name)}</b> ${m.remote?'demande une prise en main à distance':m.file?`${ui('attach',12)} ${esc(m.file.name)}`:esc(trunc(m.text,90))}</span><span class="tiny muted">${ago(m.ts)}</span></li>`}).join('')}</ul>`:'<div class="empty small">Pas encore de message.</div>'}</section>
   <section class="card"><div class="card-head"><h2>Fichiers récents</h2><a class="btn sm ghost" href="#fichiers">Tous</a></div>
    ${files.length?`<ul class="list">${files.map(f=>`<li><span class="row" style="flex-wrap:nowrap;gap:10px;min-width:0">${fileIcon(f)}<a href="javascript:void 0" onclick="downloadFile('${f.id}')">${esc(f.name)}</a></span><span class="tiny muted">${fmtSize(f.size)} · ${ago(f.ts)}</span></li>`).join('')}</ul>`:'<div class="empty small">Aucun fichier partagé.</div>'}</section>
   <section class="card"><div class="card-head"><h2>Ce que le groupe a fait</h2><button class="btn sm ghost" onclick="toggleBell()">Tout voir</button></div>
@@ -122,12 +122,19 @@ VIEWS.accueil=function(){
 
 /* ===================== ÉQUIPE ===================== */
 VIEWS.equipe=function(){const M=members();
- $('#view').innerHTML=pageHead('Équipe','Les quatre membres du Plot virtuel 7. Chacun peut modifier les noms, rôles et couleurs.')+
+ $('#view').innerHTML=pageHead('Équipe',`Les membres de ${esc(plotInfo().name)}. Chacun peut modifier les noms, rôles et couleurs.`)+
  `<div class="grid g-2"><div class="card"><h2 style="margin-bottom:6px">Les membres</h2>${M.map((m,i)=>`<div class="member-row"><span class="on-m ${isOnline(m.id)||m.id===ME.id?'is-on':''}">${avatar(m.name,m.color,'lg')}<i></i></span><div class="grid" style="grid-template-columns:1fr 1.6fr;gap:8px;flex:1"><input value="${esc(m.name)}" onchange="setMember(${i},'name',this.value)" aria-label="Nom"><input value="${esc(m.role||'')}" placeholder="Rôle (ex. pfSense et réseau)" onchange="setMember(${i},'role',this.value)" aria-label="Rôle"></div><input type="color" value="${m.color}" style="width:42px;flex:none" onchange="setMember(${i},'color',this.value)" aria-label="Couleur"></div>`).join('')}</div>
  <div class="card"><h2 style="margin-bottom:10px">Inviter le groupe</h2><ol class="steps"><li>Envoie le lien du site à Selene, Aksil et Walid.</li><li>À l'ouverture, chacun clique sur son nom. Ses messages et modifications apparaissent à son nom.</li><li>Pour être prévenu des messages et des appels quand l'onglet est caché : cloche en haut à droite › « Recevoir les messages et appels… ».</li></ol>
  <p class="small muted">Attention : toute personne qui a le lien peut lire et modifier. N'y mettez ni mot de passe ni information personnelle.</p>
  <h3 style="margin-top:18px">Installer l'application</h3><p class="small muted">Le site s'installe comme une app sur ordinateur, Android et iPhone.</p><button class="btn" onclick="installApp()">${ui('download',16)} Installer l'app</button>
- <h3 style="margin-top:18px">Sauvegarde</h3><p class="small muted">Télécharge toutes les données du plot (sauf le contenu des fichiers) dans un fichier JSON.</p><button class="btn" onclick="exportAll()">${ui('download',16)} Télécharger une sauvegarde</button>
+ <h3 style="margin-top:18px">Sauvegarde</h3><p class="small muted">Les données sont dans la base partagée, pas dans l'app : mettre à jour ou réinstaller l'app ne fait rien perdre. Une copie est aussi envoyée chaque jour dans le Google Drive de Rayan.</p>
+ <div class="row"><button class="btn" onclick="backupZip()">${ui('download',16)} Sauvegarde complète (zip, avec les fichiers)</button><button class="btn ghost" onclick="exportAll()">Données seules (JSON)</button></div>
+ <h3 style="margin-top:18px">Espaces</h3><p class="small muted">Un espace par promo ou par plot, chacun avec ses membres et ses données.</p><button class="btn" onclick="spacesModal()">${ui('team',16)} Gérer les espaces</button>
  <h3 style="margin-top:18px">Mon identité</h3><p class="small">Connecté en tant que <b>${esc(ME.name)}</b>. <button class="btn sm ghost" onclick="$('#meBtn').click()">Changer</button></p></div></div>`};
 function setMember(i,k,v){const L=clone(members());L[i][k]=v;put('meta','members',{list:L},['a modifié l\'équipe',L[i].name,'equipe'])}
-function exportAll(){const o={exportedAt:new Date().toISOString(),by:ME.name};['tasks','events','sites','meta','chat','files','folders'].forEach(c=>o[c]=arr(c));saveFile(`plot7-${todayISO()}.json`,new Blob([JSON.stringify(o,null,1)],{type:'application/json'}))}
+function exportAll(){const o={exportedAt:new Date().toISOString(),by:ME.name};['tasks','events','sites','meta','chat','files','folders'].forEach(c=>o[c]=arr(c));saveFile(`${slug(plotInfo().name)}-${todayISO()}.json`,new Blob([JSON.stringify(o,null,1)],{type:'application/json'}))}
+async function backupZip(){if(!window.JSZip)return toast('Module zip indisponible.','bad');const z=new JSZip();const P=plotInfo();
+ const o={exportedAt:new Date().toISOString(),by:ME.name,space:SPACE,name:P.name};['tasks','events','sites','meta','chat','files','folders','activity'].forEach(c=>o[c]=arr(c));z.file('donnees.json',JSON.stringify(o,null,1));
+ const F=arr('files');toast(`Préparation de la sauvegarde (${F.length} fichier${F.length>1?'s':''})…`);
+ for(const f of F){try{z.file('fichiers/'+((f.path?f.path+'/':'')+f.name),await fileBlob(f.id))}catch(e){}}
+ saveFile(`${slug(P.name)}-sauvegarde-${todayISO()}.zip`,await z.generateAsync({type:'blob'}))}

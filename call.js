@@ -81,12 +81,13 @@ VIEWS.appel=function(){
   <div class="row" style="justify-content:center"><button class="btn primary lg" onclick="joinCall()" ${LOCAL?'disabled':''}>${ui('phone',18)} ${L.length?'Rejoindre l\'appel':'Lancer un appel'}</button><button class="btn lg" onclick="joinCall(true)" ${LOCAL?'disabled':''}>${ui('cam',18)} Avec caméra</button></div>
   <p class="small muted" style="margin-top:18px">Les autres reçoivent une notification. Ton navigateur va demander l'accès au micro.</p></section>
   <div class="grid g-2" style="margin-top:18px"><div class="explain small"><b>Partager ton écran.</b> Une fois dans l'appel, clique sur « Partager l'écran » et choisis la fenêtre (par exemple l'interface Proxmox). Les autres la voient en grand, en direct.</div>
-  <div class="explain small"><b>Si ça ne connecte pas.</b> Le son et l'image passent directement entre les ordinateurs. Ça marche sur le même réseau (au lycée) et en général depuis la maison. Certains réseaux très filtrés bloquent ces connexions : essaie alors depuis un partage de connexion 4G.</div></div>`;return}
+  <div class="explain small"><b>Si ça ne connecte pas.</b> Le son et l'image passent directement entre les ordinateurs. Ça marche sur le même réseau (au lycée) et en général depuis la maison. Certains réseaux très filtrés bloquent ces connexions : essaie alors depuis un partage de connexion 4G.</div></div>${remoteCard()}`;return}
  $('#view').innerHTML=`<div class="call-wrap"><div class="call-top row between"><div><h1 style="font-size:22px;margin:0">Appel du plot</h1><span class="small muted" id="callTimer"></span></div><span class="tiny muted">${ui('dot',10)} Son et image directs entre navigateurs</span></div>
   <div id="tiles" class="tiles"></div>
   <div class="call-bar"><button class="cbtn ${CALL.micOn?'':'off'}" id="bMic" onclick="toggleMic()" title="Micro">${ui(CALL.micOn?'mic':'micoff',22)}<span>Micro</span></button>
    <button class="cbtn ${CALL.cam?'on':''}" onclick="toggleCam()" title="Caméra">${ui(CALL.cam?'cam':'camoff',22)}<span>Caméra</span></button>
    <button class="cbtn ${CALL.screen?'on':''}" onclick="toggleScreen()" title="Partager l'écran">${ui('screen',22)}<span>${CALL.screen?'Arrêter le partage':'Partager l\'écran'}</span></button>
+   <button class="cbtn" onclick="askRemote()" title="Laisser quelqu'un prendre la main sur ton PC">${ui('terminal',22)}<span>Prise en main</span></button>
    <button class="cbtn hang" onclick="leaveCall()" title="Quitter">${ui('phoneoff',22)}<span>Quitter</span></button></div></div>`;
  callTiles();
 };
@@ -106,3 +107,16 @@ setInterval(()=>{if(CALL.in&&CUR==='appel'){const t=$('#callTimer');if(t){const 
 function callPillUpdate(){const el=$('#callPill');if(!el)return;const n=callPeople().length;
  if(CALL.in){el.hidden=false;el.className='callpill in';const s=Math.floor((Date.now()-CALL.since)/1000);el.innerHTML=`${ui('phone',14)} En appel · ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}${CALL.screen?' · écran partagé':''}`}
  else if(n){el.hidden=false;el.className='callpill';el.innerHTML=`${ui('phone',14)} Appel en cours (${n}) · Rejoindre`}else el.hidden=true}
+
+/* ===================== Prise en main à distance ===================== */
+/* Un navigateur ne peut pas piloter un autre ordinateur. On s'appuie sur Bureau à distance Chrome
+   (gratuit, Google) : la personne aidée génère un code, l'aidant le saisit, et une fenêtre
+   demande à la personne aidée d'autoriser l'accès complet. */
+const CRD='https://remotedesktop.google.com/support';
+const remoteCard=()=>`<section class="card remote-card"><div class="row between" style="gap:14px"><div class="row" style="gap:14px;flex-wrap:nowrap">${icon('poste',48)}<div><h2 style="margin:0 0 4px">Prendre la main sur un PC</h2><p class="small muted" style="margin:0">Pour contrôler l'ordinateur d'un camarade (souris et clavier). Il doit accepter dans une fenêtre d'autorisation.</p></div></div>
+ <div class="row" style="gap:8px"><button class="btn primary" onclick="askRemote()">${ui('terminal',16)} J'ai besoin d'aide</button><button class="btn" onclick="giveRemote()">${ui('ext',16)} Aider quelqu'un</button></div></div></section>`;
+async function askRemote(){window.open(CRD,'crd');
+ const o=openModal('Laisser un camarade prendre la main',`<ol class="steps big-steps"><li>Dans l'onglet <b>Bureau à distance Chrome</b> qui vient de s'ouvrir, partie « Obtenir de l'aide » : installe le petit module la première fois (sur Mac, autorise ensuite « Accessibilité » et « Enregistrement de l'écran » dans Réglages › Confidentialité).</li><li>Clique sur <b>Générer le code</b>, puis colle-le ici : il est envoyé dans la discussion.</li><li>Quand ton camarade se connecte, une fenêtre te demande d'<b>autoriser</b> le partage et le contrôle. Tu peux arrêter à tout moment avec « Arrêter le partage ».</li></ol>
+ <form class="row" id="rmf" style="margin-top:6px;flex-wrap:nowrap"><input id="rmc" placeholder="Code à 12 chiffres" inputmode="numeric" autocomplete="off" style="flex:1"><button class="btn primary">${ui('send',16)} Envoyer le code</button></form><p class="tiny muted">Le code est valable 5 minutes et ne sert qu'une fois.</p>`);
+ $('#rmf',o).onsubmit=async e=>{e.preventDefault();const code=$('#rmc').value.replace(/\D/g,'');if(code.length<12)return toast('Le code fait 12 chiffres.','bad');closeModal();const ch=CH.chan;CH.chan='general';await sendMsg({text:'',remote:{code}});CH.chan=ch;toast('Code envoyé dans la discussion.')}}
+function giveRemote(code){if(code)navigator.clipboard?.writeText(code).then(()=>toast('Code copié : colle-le dans « Apporter une assistance ».')).catch(()=>{});window.open(CRD,'crd')}

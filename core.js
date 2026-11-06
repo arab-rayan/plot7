@@ -18,12 +18,17 @@ const clone=o=>JSON.parse(JSON.stringify(o??null));
 
 /* ===================== Données partagées ===================== */
 // Toutes les collections du Plot 7 sont préfixées « p7_ » dans Firestore.
-const PREFIX_DB=(new URLSearchParams(location.search).get('ns')||'p7').replace(/[^a-z0-9]/gi,'')+'_';
+// Espaces : un espace = une promo ou un plot. « p7 » = Plot virtuel 7 (données d'origine, jamais déplacées).
+const SPACE=((new URLSearchParams(location.search).get('ns'))||ls.get('p7-space','p7')).replace(/[^a-z0-9]/gi,'')||'p7';
+const PREFIX_DB=SPACE+'_';
+const KEY=k=>SPACE==='p7'?'p7-'+k:SPACE+'-'+k;   // réglages du navigateur propres à chaque espace
+let SPACES=new Map();
+const plotInfo=()=>({...PLOT,...(SPACES.get(SPACE)||{}),...(D.meta.get('plot')||{})});
 const COLS=['tasks','events','sites','meta','activity','chat','files','folders','presence','callpeers'];
 const D={};COLS.forEach(c=>D[c]=new Map());
 let FIRE=false,DBH=null,LIVE=false,FIRST=new Set(),BOOT=Date.now(),LOCAL=false;
 const arr=c=>[...D[c].values()];
-const members=()=>D.meta.get('members')?.list||DEFAULT_MEMBERS;
+const members=()=>D.meta.get('members')?.list||(SPACE==='p7'?DEFAULT_MEMBERS:[]);
 const member=id=>id==='all'?{id:'all',name:'Tout le groupe',color:'#64748b',role:''}:(members().find(m=>m.id===id)||{id:'',name:'Non attribué',color:'#94a3b8',role:''});
 const initials=n=>(n||'?').replace(/\(.*\)/,'').split(/\s+/).filter(x=>/[\p{L}\d]/u.test(x[0]||'')).map(x=>x[0]).join('').slice(0,2).toUpperCase()||'?';
 const avatar=(name,color,cls='')=>`<span class="avatar ${cls}" style="background:${color||'#64748b'}" title="${esc(name)}">${esc(initials(name))}</span>`;
@@ -35,6 +40,7 @@ async function initStore(){
  try{if(window.FIREBASE_CONFIG&&window.firebase){if(!firebase.apps.length)firebase.initializeApp(window.FIREBASE_CONFIG);DBH=firebase.firestore();try{DBH.settings({experimentalForceLongPolling:true,merge:true})}catch(e){}FIRE=true}}catch(e){console.error(e);DBH=null}
  if(!DBH){LOCAL=true;localStoreInit()}
  COLS.forEach(subscribe);
+ if(FIRE)DBH.collection('spaces').onSnapshot(s=>{SPACES=new Map(s.docs.map(d=>[d.id,{id:d.id,...d.data()}]));renderGate(true);updateShellBits();if(CUR==='equipe')scheduleRender()},()=>{});
  if(FIRE)seedFirestoreIfEmpty();
  if(typeof startPresence==='function')startPresence();
  setTimeout(()=>{if(!LIVE){setLive(false);toast('La base partagée ne répond pas encore. Les données affichées peuvent être incomplètes.','bad')}},12000);
@@ -73,8 +79,8 @@ async function logAct(verb,label,route,quiet){
 /* --- magasin local (si config.js est vide : rien n'est partagé) --- */
 let LS=null;
 function localStoreInit(){
- const listeners={};const data=ls.get('p7-local-db',{});
- const persist=()=>ls.set('p7-local-db',data);
+ const listeners={};const data=ls.get(KEY('local-db'),{});
+ const persist=()=>ls.set(KEY('local-db'),data);
  const emit=col=>(listeners[col]||[]).forEach(fn=>fn());
  const snap=(col,order,lim)=>{let docs=Object.entries(data[col]||{}).map(([id,v])=>({id,exists:true,data:()=>v,metadata:{fromCache:false}}));if(order)docs.sort((a,b)=>order.dir==='desc'?b.data()[order.f]-a.data()[order.f]:a.data()[order.f]-b.data()[order.f]);if(lim)docs=docs.slice(0,lim);return{docs,size:docs.length,empty:!docs.length,docChanges:()=>[],metadata:{fromCache:false}}};
  const coll=(col,order,lim)=>({orderBy:(f,dir)=>coll(col,{f,dir},lim),limit:n=>coll(col,order,n),
@@ -86,22 +92,27 @@ function localStoreInit(){
 }
 
 /* ===================== Identité ===================== */
-let ME=ls.get('p7-me',null);
+let ME=ls.get(KEY('me'),null);
 let GATE_ENTER=null;
 function renderGate(){const box=$('#whoGrid');if(!box||!GATE_ENTER)return;
+ const P=plotInfo();const t=$('#gateTitle');if(t)t.textContent=P.name;const e=$('#gateEyebrow');if(e)e.textContent=P.promo||'BTS SIO SISR · Lycée Turgot';
+ const sel=$('#spaceSel');if(sel){const L=[...SPACES.values()];if(!SPACES.has(SPACE))L.unshift({id:SPACE,name:P.name});const sg=JSON.stringify(L.map(x=>[x.id,x.name,x.promo]));if(sel.dataset.sig!==sg){sel.dataset.sig=sg;sel.innerHTML=L.map(x=>`<option value="${esc(x.id)}" ${x.id===SPACE?'selected':''}>${esc(x.name)}${x.promo?' · '+esc(x.promo):''}</option>`).join('')}}
  const sig=JSON.stringify(members().map(m=>[m.id,m.name,m.role,m.color]));if(box.dataset.sig===sig)return;box.dataset.sig=sig;
- box.innerHTML=members().map(m=>`<button class="who-btn" data-id="${m.id}">${avatar(m.name,m.color,'lg')}<span><b>${esc(m.name)}</b><small>${esc(m.role||'Plot virtuel 7')}</small></span></button>`).join('');
+ if(!members().length){box.innerHTML='<p class="small" style="color:#9fb0dd">Chargement des membres…</p>';return}
+ box.innerHTML=members().map(m=>`<button class="who-btn" data-id="${m.id}">${avatar(m.name,m.color,'lg')}<span><b>${esc(m.name)}</b><small>${esc(m.role||plotInfo().name)}</small></span></button>`).join('');
  $$('.who-btn',box).forEach(b=>b.onclick=()=>{const m=members().find(x=>x.id===b.dataset.id);GATE_ENTER({name:m.name,id:m.id,color:m.color})})}
-function syncMe(){if(!ME?.id)return;const m=members().find(x=>x.id===ME.id);if(m&&(m.name!==ME.name||m.color!==ME.color)){ME={...ME,name:m.name,color:m.color};ls.set('p7-me',ME)}}
+function syncMe(){if(!ME?.id)return;const m=members().find(x=>x.id===ME.id);if(m&&(m.name!==ME.name||m.color!==ME.color)){ME={...ME,name:m.name,color:m.color};ls.set(KEY('me'),ME)}}
 function gate(){
  const g=document.createElement('div');g.className='gate';g.id='gate';
- g.innerHTML=`<div class="gate-card"><div class="row" style="gap:12px"><div class="brand-mark">${icon('serveur',30)}</div><div><div class="eyebrow" style="color:#9fb0dd">BTS SIO SISR · Lycée Turgot</div><h1>Plot virtuel 7</h1></div></div>
+ g.innerHTML=`<div class="gate-card"><div class="row" style="gap:12px"><div class="brand-mark">${icon('serveur',30)}</div><div><div class="eyebrow" style="color:#9fb0dd" id="gateEyebrow">BTS SIO SISR · Lycée Turgot</div><h1 id="gateTitle">${esc(plotInfo().name)}</h1></div></div>
+ <div class="space-sw"><span>Espace</span><select id="spaceSel" aria-label="Choisir l'espace (promo ou plot)"><option>${esc(plotInfo().name)}</option></select><button class="btn sm glass" id="newSpaceBtn" type="button">${ui('plus',14)} Nouvel espace</button></div>
  <p>L'espace de travail du plot : le serveur Proxmox, l'infrastructure, les tâches, la discussion, les fichiers et les appels. Clique sur ton nom pour entrer.</p>
  <div class="who-grid" id="whoGrid"></div>
  <p class="tiny" style="margin-top:14px">Les changements sont visibles en direct par tout le groupe.</p></div>`;
  document.body.appendChild(g);
- const enter=(m)=>{ME=m;ls.set('p7-me',m);g.style.transition='opacity .35s';g.style.opacity='0';setTimeout(()=>g.remove(),350);renderShell();route();if(typeof beat==='function')beat();if(!ls.get('p7-seen-'+m.id,0))ls.set('p7-seen-'+m.id,Date.now()-7*864e5)};
+ const enter=(m)=>{ME=m;ls.set(KEY('me'),m);g.style.transition='opacity .35s';g.style.opacity='0';setTimeout(()=>g.remove(),350);renderShell();route();if(typeof beat==='function')beat();if(!ls.get(KEY('seen-')+m.id,0))ls.set(KEY('seen-')+m.id,Date.now()-7*864e5)};
  GATE_ENTER=enter;renderGate();
+ $('#spaceSel',g).onchange=e=>switchSpace(e.target.value);$('#newSpaceBtn',g).onclick=newSpace;
 }
 
 /* ===================== Présence (qui est en ligne) ===================== */
@@ -111,7 +122,7 @@ function startPresence(){if(BEAT)return;beat();BEAT=setInterval(beat,60000);docu
 const isOnline=id=>{const p=D.presence.get(id);return p&&Date.now()-p.ts<150000};
 
 /* ===================== Notifications ===================== */
-const seenKey=()=>'p7-seen-'+(ME?.id||'');
+const seenKey=()=>KEY('seen-')+(ME?.id||'');
 const unread=()=>arr('activity').filter(a=>a.ts>ls.get(seenKey(),0)&&a.who!==ME?.name);
 function toast(msg,kind='',route='',label='Voir'){
  let box=$('#toasts');if(!box){box=document.createElement('div');box.id='toasts';box.className='toasts';document.body.appendChild(box)}
@@ -158,7 +169,7 @@ async function saveFile(filename,data){
 const NAV=[['accueil','Accueil','home'],['serveur','Serveur Proxmox','server'],['infra','Infrastructure','map'],['taches','Tâches et planning','tasks'],['chat','Discussion','chat'],['fichiers','Fichiers','folder'],['appel','Appel','phone'],['equipe','Équipe','team']];
 const VIEWS={};let CUR='accueil',renderPending=false,deferRender=false;
 function route(){if(typeof tipHide==='function')tipHide();const h=(location.hash||'').slice(1);const prev=CUR;CUR=VIEWS[h]?h:'accueil';if(prev!==CUR&&typeof onLeave==='function')onLeave(prev);$('#rail')?.classList.remove('open');$$('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.r===CUR));
- const c=$('#crumb');if(c)c.textContent=NAV.find(n=>n[0]===CUR)?.[1]||'';$('.content')?.classList.toggle('full',CUR==='infra'||CUR==='serveur');$('.content')?.classList.toggle('flush',CUR==='chat');
+ const c=$('#crumb');if(c)c.textContent=NAV.find(n=>n[0]===CUR)?.[1]||'';$('.content')?.classList.toggle('full',CUR==='infra');$('.content')?.classList.toggle('flush',CUR==='chat');
  const v=$('#view');if(!v)return;v.classList.remove('view');void v.offsetWidth;v.classList.add('view');renderView();window.scrollTo({top:0});updateShellBits();beat()}
 function renderView(){const v=$('#view');if(!v||!ME)return;try{VIEWS[CUR]()}catch(e){console.error(e);v.innerHTML=`<div class="empty">Erreur d'affichage : ${esc(e.message)}</div>`}}
 function scheduleRender(){if(renderPending)return;renderPending=true;requestAnimationFrame(()=>{renderPending=false;syncMe();renderGate();
@@ -172,7 +183,7 @@ window.addEventListener('hashchange',route);
 function renderShell(){
  if(!$('#shell')){
   document.body.insertAdjacentHTML('beforeend',`<div class="app" id="shell"><aside class="rail" id="rail">
-  <div class="brand"><div class="brand-mark">${icon('serveur',28)}</div><div><b>Plot virtuel 7</b><small>BTS SIO SISR · 10.113.7.x</small></div></div>
+  <a class="brand" href="javascript:void 0" onclick="spacesModal()" title="Changer d'espace" style="color:inherit;text-decoration:none"><div class="brand-mark">${icon('serveur',28)}</div><div><b id="brandName"></b><small id="brandSub"></small></div></a>
   <nav class="nav" id="nav"></nav>
   <div class="rail-foot"><div class="online" id="online"></div><span class="live off" id="live"><i></i><span>Connexion…</span></span></div></aside>
   <div class="main"><header class="topbar"><button class="btn ghost icon menu-btn" id="menuBtn" aria-label="Menu">${ui('menu')}</button><span class="crumb" id="crumb"></span><span class="sp"></span>
@@ -182,7 +193,7 @@ function renderShell(){
   <button class="btn ghost" id="meBtn"></button></header>
   <main class="content"><div id="view" class="view wrap"></div></main></div></div>`);
   $('#menuBtn').onclick=()=>$('#rail').classList.toggle('open');$('#bellBtn').onclick=toggleBell;
-  $('#meBtn').onclick=async()=>{if(await confirmBox(`Tu es connecté en tant que ${ME.name}. Changer d'identité ?`,'Changer')){if(typeof leaveCall==='function')await leaveCall();ls.set('p7-me',null);ME=null;location.reload()}};
+  $('#meBtn').onclick=async()=>{if(await confirmBox(`Tu es connecté en tant que ${ME.name}. Changer d'identité ?`,'Changer')){if(typeof leaveCall==='function')await leaveCall();ls.set(KEY('me'),null);ME=null;location.reload()}};
  }
  updateShellBits();setLive(LIVE);
 }
@@ -192,6 +203,7 @@ function updateShellBits(){
  const chatN=typeof chatUnread==='function'?chatUnread():0;const inCall=typeof callPeople==='function'?callPeople().length:0;
  const badge=r=>r==='taches'&&mineOpen?`<span class="badge" title="Tes tâches ouvertes">${mineOpen}</span>`:r==='chat'&&chatN?`<span class="badge hot" title="Messages non lus">${chatN>99?'99+':chatN}</span>`:r==='appel'&&inCall?`<span class="badge live-b" title="En appel">${inCall}</span>`:'';
  $('#nav').innerHTML=NAV.map(([r,l,i])=>`<a href="#${r}" data-r="${r}" class="${r===CUR?'active':''}">${ui(i)}<span>${l}</span>${badge(r)}</a>`).join('');
+ const P=plotInfo();const bn=$('#brandName');if(bn){bn.textContent=P.name;$('#brandSub').textContent=`${P.promo?P.promo+' · ':'BTS SIO SISR · '}${P.net||''}`;document.title=P.name}
  const bc=$('#bellCount');bc.hidden=!u;bc.textContent=u>9?'9+':u;
  $('#meBtn').innerHTML=`${avatar(ME.name,ME.color)}<span class="small" style="font-weight:600">${esc(ME.name)}</span>`;
  const on=$('#online');if(on)on.innerHTML=`<div class="tiny" style="color:var(--rail-muted);margin-bottom:8px">Le groupe</div>`+members().map(m=>`<span class="on-m ${isOnline(m.id)||m.id===ME.id?'is-on':''}" title="${esc(m.name)} · ${isOnline(m.id)||m.id===ME.id?'en ligne':'hors ligne'}">${avatar(m.name,m.color)}<i></i></span>`).join('');
@@ -206,10 +218,10 @@ const stL=(a,v)=>(a.find(x=>x[0]===v)||[,v])[1];
 const memberOpts=()=>[{v:'',l:'— Non attribué'},...members().map(m=>({v:m.id,l:m.name+(m.role?' — '+m.role:'')})),{v:'all',l:'Tout le groupe'}];
 
 /* Remplit Firestore avec les données de départ du Plot 7 au tout premier lancement */
-async function seedFirestoreIfEmpty(){try{const m=await ref('meta').doc('plot').get();if(m.exists)return;
+async function seedFirestoreIfEmpty(){try{const m=await ref('meta').doc('plot').get();if(m.exists){setTimeout(ensureSpaceRegistered,1500);return}if(SPACE!=='p7'){missingSpace();return}
  const seed=await (await fetch('seed.json')).json();let b=DBH.batch(),n=0;
  for(const [col,docs] of Object.entries(seed))for(const [id,data] of Object.entries(docs)){b.set(ref(col).doc(id),data);if(++n%400===0){await b.commit();b=DBH.batch()}}
- await b.commit();toast('Espace du Plot 7 initialisé.')}catch(e){console.error(e);toast('Impossible d\'initialiser la base ('+(e.code||e.message)+').','bad')}}
+ await b.commit();toast('Espace initialisé.');setTimeout(ensureSpaceRegistered,1500)}catch(e){console.error(e);toast('Impossible d\'initialiser la base ('+(e.code||e.message)+').','bad')}}
 
 /* ===================== Application installable ===================== */
 let INSTALL=null;
@@ -222,3 +234,26 @@ function installHelp(){openModal('Installer le site comme une application',`<ol 
  <li><b>Android (Chrome) :</b> menu ⋮ › « Installer l'application » (ou « Ajouter à l'écran d'accueil »).</li>
  <li><b>iPhone / iPad (Safari) :</b> bouton Partager › « Sur l'écran d'accueil ».</li></ol>
  <p class="small muted">L'application s'ouvre dans sa propre fenêtre, avec son icône. Elle se met à jour toute seule quand le site change.</p>${isStandalone()?'<p class="small"><b>Tu utilises déjà l\'application installée.</b></p>':''}`)}
+
+/* ===================== Espaces (promos / plots) ===================== */
+function switchSpace(id){if(!id||id===SPACE)return;if(typeof leaveCall==='function')leaveCall();ls.set('p7-space',id);location.href=location.pathname}
+function spacesModal(){const L=[...SPACES.values()];if(!SPACES.has(SPACE))L.unshift({id:SPACE,name:plotInfo().name,promo:plotInfo().promo});
+ const o=openModal('Espaces (promos et plots)',`<p class="small muted" style="margin-top:0">Chaque espace a ses propres membres, tâches, discussions, fichiers et schéma. Rien n'est mélangé.</p><ul class="list">${L.map(x=>`<li><span><b>${esc(x.name)}</b>${x.promo?`<span class="tiny muted"> · ${esc(x.promo)}</span>`:''}</span>${x.id===SPACE?'<span class="chip ok">Ouvert</span>':`<button class="btn sm" onclick="switchSpace('${esc(x.id)}')">Ouvrir</button>`}</li>`).join('')}</ul><div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn primary" onclick="newSpace()">${ui('plus',16)} Nouvel espace</button></div>`)}
+const PAL=['#2d5bd8','#d9822b','#8b4fd1','#1f9d74','#c23b3b','#0e8fa3','#b5486f','#6b7280'];
+function newSpace(){if(!DBH||LOCAL)return toast('Il faut la base partagée pour créer un espace.','bad');
+ openForm({title:'Nouvel espace (promo ou plot)',values:{promo:'BTS SIO SISR',num:''},fields:[{k:'name',label:'Nom de l\'espace',placeholder:'Ex. Plot 3',wide:true},{k:'promo',label:'Promo',placeholder:'Ex. BTS SIO SISR · 1re année 2026-2027'},{k:'num',label:'Numéro du plot',type:'number',hint:'Sert aux adresses : 10.113.N.x'},{k:'members',label:'Membres (un prénom par ligne)',type:'textarea',rows:4,wide:true}],
+ onSave:async v=>{const name=v.name||'Nouvel espace';const n=parseInt(v.num)||0;const names=v.members.split(/[\n,;]+/).map(x=>x.trim()).filter(Boolean);if(!names.length)return toast('Ajoute au moins un membre.','bad');
+  toast('Création de l\'espace…');try{
+  const id=(slug(name).replace(/-/g,'').slice(0,10)||'esp')+Math.random().toString(36).slice(2,5);
+  let txt=await (await fetch('seed.json',{cache:'no-store'})).text();
+  if(n)txt=txt.split('10.113.7.').join(`10.113.${n}.`).split('192.168.7.').join(`192.168.${n}.`).split('P7-').join(`P${n}-`).split('FW-P7').join(`FW-P${n}`);
+  txt=txt.split('Plot virtuel 7').join(name);const seed=JSON.parse(txt);const T=Date.now();(seed.sites?.plot7?.eq||[]).forEach(e=>{if(e.type==='serveur')e.notes=''});
+  seed.meta.members={list:names.map((x,i)=>({id:'p'+(i+1),name:x,role:'',color:PAL[i%PAL.length]})),updatedAt:T,updatedBy:ME?.name||names[0]};
+  seed.meta.plot={...seed.meta.plot,name,promo:v.promo,num:n||null,net:n?`10.113.${n}.x/16`:seed.meta.plot.net,createdAt:T};
+  seed.meta.pve={host:n?`10.113.${n}.1`:'',port:8006,target:n?`10.113.${n}.1`:''};
+  seed.activity={a0:{who:ME?.name||names[0],color:ME?.color||PAL[0],verb:'a créé',label:`l'espace ${name}`,route:'accueil',ts:T}};
+  let b=DBH.batch(),k=0;for(const [col,docs] of Object.entries(seed))for(const [did,data] of Object.entries(docs)){b.set(DBH.collection(id+'_'+col).doc(did),data);if(++k%400===0){await b.commit();b=DBH.batch()}}
+  await b.commit();await DBH.collection('spaces').doc(id).set({name,promo:v.promo,plot:n||null,createdAt:T,by:ME?.name||''});
+  switchSpace(id)}catch(e){console.error(e);toast('Création impossible ('+(e.code||e.message)+').','bad')}}})}
+async function ensureSpaceRegistered(){if(!FIRE)return;try{const r=DBH.collection('spaces').doc(SPACE);const s=await r.get();if(!s.exists){const P=plotInfo();await r.set({name:P.name,promo:P.promo||'BTS SIO SISR',plot:P.num||(SPACE==='p7'?7:null),createdAt:Date.now()})}}catch(e){}}
+function missingSpace(){const box=$('#whoGrid')||$('#view');if(!box)return;box.innerHTML=`<div class="empty small" style="color:inherit">Cet espace n'existe pas ou a été supprimé.<br><button class="btn sm" style="margin-top:10px" onclick="ls.set('p7-space','p7');location.href=location.pathname">Revenir au Plot virtuel 7</button></div>`}

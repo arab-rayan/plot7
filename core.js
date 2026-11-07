@@ -204,17 +204,18 @@ function renderShell(){
   document.body.insertAdjacentHTML('beforeend',`<div class="app" id="shell"><aside class="rail" id="rail">
   <a class="brand" href="javascript:void 0" onclick="spacesModal()" title="Changer d'espace" style="color:inherit;text-decoration:none"><div class="brand-mark">${icon('serveur',28)}</div><div><b id="brandName"></b><small id="brandSub"></small></div></a>
   <nav class="nav" id="nav"></nav>
-  <div class="rail-foot"><div class="online" id="online"></div><span class="live off" id="live"><i></i><span>Connexion…</span></span></div></aside>
-  <div class="main"><header class="topbar"><button class="btn ghost icon menu-btn" id="menuBtn" aria-label="Menu">${ui('menu')}</button><span class="crumb" id="crumb"></span><span class="sp"></span>
+  <div class="rail-foot"><div id="srvMini"></div><div class="online" id="online"></div><span class="live off" id="live"><i></i><span>Connexion…</span></span></div></aside>
+  <div class="main"><header class="topbar"><button class="btn ghost icon menu-btn" id="menuBtn" aria-label="Menu">${ui('menu')}</button><span class="crumb" id="crumb"></span><button class="searchbar" id="searchBtn" type="button" aria-label="Rechercher">${ui('search',16)}<span>Rechercher une page, une tâche, un fichier…</span><kbd>Ctrl K</kbd></button><span class="sp"></span>
   <a class="callpill" id="callPill" href="#appel" hidden></a>
   <button class="btn sm primary" id="installBtn" hidden onclick="installApp()">${ui('download',15)} Installer l'app</button>
+  <button class="btn ghost icon" id="themeBtn" aria-label="Changer de thème" type="button"></button>
   <div class="bell" id="bellHost"><button class="btn ghost icon" id="bellBtn" aria-label="Notifications">${ui('bell')}<span class="count" id="bellCount" hidden></span></button></div>
   <button class="btn ghost" id="meBtn"></button></header>
   <main class="content"><div id="view" class="view wrap"></div></main></div></div>
   <div class="scrim" id="scrim"></div><nav class="tabbar" id="tabbar" aria-label="Navigation principale"></nav>`);
   $('#scrim').onclick=()=>$('#rail').classList.remove('open');
   $('#menuBtn').onclick=()=>$('#rail').classList.toggle('open');$('#bellBtn').onclick=toggleBell;
-  $('#meBtn').onclick=meMenu;
+  $('#meBtn').onclick=meMenu;$('#searchBtn').onclick=openSearch;$('#themeBtn').onclick=toggleTheme;themePaint();
  }
  updateShellBits();setLive(LIVE);
 }
@@ -223,7 +224,8 @@ function updateShellBits(){
  const mineOpen=arr('tasks').filter(t=>t.owner===ME.id&&!isDone(t.status)).length;
  const chatN=typeof chatUnread==='function'?chatUnread():0;const inCall=typeof callPeople==='function'?callPeople().length:0;
  const badge=r=>r==='taches'&&mineOpen?`<span class="badge" title="Tes tâches ouvertes">${mineOpen}</span>`:r==='chat'&&chatN?`<span class="badge hot" title="Messages non lus">${chatN>99?'99+':chatN}</span>`:r==='appel'&&inCall?`<span class="badge live-b" title="En appel">${inCall}</span>`:'';
- $('#nav').innerHTML=NAV.map(([r,l,i])=>`<a href="#${r}" data-r="${r}" class="${r===CUR?'active':''}">${ui(i)}<span>${l}</span>${badge(r)}</a>`).join('');
+ $('#nav').innerHTML=[['Espace de travail',['accueil','serveur','infra']],['Collaboration',['taches','chat','fichiers','appel','equipe']]].map(([g,rs])=>`<div class="nav-group">${g}</div>`+rs.map(r=>{const [,l,i]=NAV.find(n=>n[0]===r);return `<a href="#${r}" data-r="${r}" class="${r===CUR?'active':''}">${ui(i)}<span>${l}</span>${badge(r)}</a>`}).join('')).join('');
+ const sm=$('#srvMini');if(sm&&typeof servers==='function'){const sv=servers()[0];sm.innerHTML=sv?`<a class="srvcard" href="#serveur"><span class="srvic">${ui('server',16)}</span><span class="srvt"><b>${esc(sv.name)}</b><small class="mono">${esc(sv.host)}</small></span>${SV.st[sv.id]?`<i class="sdot ${SV.st[sv.id]==='ok'?'ok':SV.st[sv.id]==='err'?'err':''}" title="${SV.st[sv.id]==='ok'?'Joignable':SV.st[sv.id]==='err'?'Injoignable':'Test…'}"></i>`:''}</a>`:''}
  const P=plotInfo();const bn=$('#brandName');if(bn){bn.textContent=P.name;$('#brandSub').textContent=`${P.promo?P.promo+' · ':'BTS SIO SISR · '}${P.net||''}`;document.title=P.name}
  const tb=$('#tabbar');if(tb){const T=[['accueil','Accueil','home'],['chat','Discussion','chat'],['appel','Appel','phone'],['fichiers','Fichiers','folder']];const more=!T.some(t=>t[0]===CUR);
   tb.innerHTML=T.map(([r,l,i])=>`<a href="#${r}" class="${r===CUR?'on':''}" ${r==='chat'?`onclick="if(CUR==='chat'&&isMob()&&!CH.list){event.preventDefault();backToRooms()}"`:''}>${ui(i,22)}<span>${l}</span>${badge(r)}</a>`).join('')+`<button type="button" class="${more?'on':''}" onclick="$('#rail').classList.add('open')">${ui('menu',22)}<span>Plus</span>${(mineOpen&&!more)?'<i class="dotb"></i>':''}</button>`}
@@ -374,3 +376,29 @@ function showLock(){return new Promise(done=>{
  setTimeout(()=>pw.focus(),200)})}
 async function lockDevice(){try{await goOffline()}catch(e){}try{if(typeof gDisconnect==='function')await gDisconnect(true)}catch(e){}
  try{await AUTH?.signOut()}catch(e){}try{localStorage.removeItem('p7-auth-ts')}catch(e){}ss.set(KEY('me'),null);location.reload()}
+
+
+/* ===================== Thème, recherche rapide ===================== */
+const SUN='<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',MOON='<path d="M21 13.5A8.5 8.5 0 1 1 10.5 3 6.5 6.5 0 0 0 21 13.5z"/>';
+const curTheme=()=>document.documentElement.dataset.theme==='light'?'light':'dark';
+function themePaint(){const b=$('#themeBtn');if(b)b.innerHTML=`<svg class="uic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${curTheme()==='dark'?SUN:MOON}</svg>`;b&&(b.title=curTheme()==='dark'?'Passer en thème clair':'Passer en thème sombre')}
+function toggleTheme(){const n=curTheme()==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('p7-theme',n)}catch(e){}themePaint()}
+let CMD={sel:0,items:[]};
+function cmdkItems(q){q=q.trim().toLowerCase();const m=s=>!q||String(s||'').toLowerCase().includes(q);const out=[];
+ NAV.forEach(([r,l,i])=>{if(m(l))out.push({g:'Pages',ic:i,t:l,run:()=>{location.hash='#'+r}})});
+ if(q){arr('tasks').filter(t=>m(t.title)||m(t.code)).slice(0,6).forEach(t=>out.push({g:'Tâches',ic:'tasks',t:t.title,s:stL(TASK_ST,t.status),run:()=>editTask(t.id)}));
+  arr('files').filter(f=>m(f.name)).slice(0,6).forEach(f=>out.push({g:'Fichiers',ic:'file',t:f.name,s:fmtSize(f.size),run:()=>previewFile(f.id)}));
+  members().filter(x=>m(x.name)||m(x.role)).forEach(x=>out.push({g:'Équipe',ic:'team',t:x.name,s:x.role||'',run:()=>{location.hash='#equipe'}}));
+  if(q.length>=2)arr('chat').filter(x=>x.text&&m(x.text)).sort((a,b)=>b.ts-a.ts).slice(0,5).forEach(x=>out.push({g:'Messages',ic:'chat',t:trunc(x.text,70),s:ago(x.ts),run:()=>{location.hash='#chat'}}))}
+ return out}
+function cmdkRun(q){CMD.items=cmdkItems(q);CMD.sel=0;const L=$('#cmdkL');if(!L)return;let g='';L.innerHTML=CMD.items.length?CMD.items.map((x,i)=>{const h=x.g!==g?`<div class="cmdk-g">${x.g}</div>`:'';g=x.g;return h+`<button class="cmdk-i ${i===0?'on':''}" data-i="${i}">${ui(x.ic,16)}<span class="cmdk-t">${esc(x.t)}</span><span class="tiny muted">${esc(x.s||'')}</span></button>`}).join(''):'<div class="empty small">Aucun résultat.</div>';
+ $$('.cmdk-i',L).forEach(b=>{b.onclick=()=>cmdkGo(+b.dataset.i);b.onmouseenter=()=>cmdkSel(+b.dataset.i)})}
+function cmdkSel(i){CMD.sel=i;$$('.cmdk-i').forEach((b,k)=>b.classList.toggle('on',k===i));$$('.cmdk-i')[i]?.scrollIntoView({block:'nearest'})}
+function cmdkGo(i){const it=CMD.items[i];closeSearch();if(it)it.run()}
+function closeSearch(){$('#cmdk')?.remove()}
+function openSearch(){if($('#cmdk'))return closeSearch();const o=document.createElement('div');o.id='cmdk';o.className='cmdk';
+ o.innerHTML=`<div class="cmdk-box" role="dialog" aria-label="Recherche"><div class="cmdk-in">${ui('search',18)}<input id="cmdkQ" placeholder="Rechercher une page, une tâche, un fichier, un message…" autocomplete="off" spellcheck="false"><kbd>Échap</kbd></div><div class="cmdk-list" id="cmdkL"></div></div>`;
+ document.body.appendChild(o);o.onclick=e=>{if(e.target===o)closeSearch()};const q=$('#cmdkQ');q.oninput=()=>cmdkRun(q.value);
+ q.onkeydown=e=>{const n=CMD.items.length;if(e.key==='ArrowDown'){e.preventDefault();cmdkSel((CMD.sel+1)%Math.max(1,n))}else if(e.key==='ArrowUp'){e.preventDefault();cmdkSel((CMD.sel-1+n)%Math.max(1,n))}else if(e.key==='Enter'){e.preventDefault();cmdkGo(CMD.sel)}else if(e.key==='Escape')closeSearch()};
+ q.focus();cmdkRun('')}
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&ME){e.preventDefault();openSearch()}else if(e.key==='Escape')closeSearch()});

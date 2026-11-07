@@ -84,6 +84,55 @@ function editEvent(id,date){const e=id?D.events.get(id):null;
   onDelete:e?()=>del('events',e.id,['a supprimé l\'événement',`« ${e.title} »`,'taches']):null})}
 
 /* ===================== ACCUEIL ===================== */
+/* ===================== Tableau de bord ===================== */
+const DAYMS=864e5,sum=a=>a.reduce((s,x)=>s+x,0);let SPK=0;
+const day0=()=>{const t=new Date();t.setHours(0,0,0,0);return t.getTime()};
+function buckets(list,days,shift=0){const out=Array(days).fill(0);const start=day0()-(days-1+shift)*DAYMS;list.forEach(x=>{const t=x.ts;if(!t)return;const i=Math.floor((t-start)/DAYMS);if(i>=0&&i<days)out[i]++});return out}
+function spark(a,color){const w=96,h=34,m=Math.max(1,...a),n=a.length,id='sg'+(++SPK);const pts=a.map((x,i)=>[i/(n-1)*w,h-4-(x/m)*(h-10)]);const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join('');
+ return `<svg class="spark" viewBox="0 0 ${w} ${h}" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".32"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><path d="${d}L${w} ${h}L0 ${h}Z" fill="url(#${id})"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`}
+function dchip(cur,prev){if(!cur&&!prev)return '<span class="dchip">7 j : aucune activité</span>';if(!prev)return `<span class="dchip up">↑ +${cur}</span>`;const p=Math.round((cur-prev)/prev*100);return `<span class="dchip ${p>0?'up':p<0?'down':''}">${p>0?'↑':p<0?'↓':'→'} ${Math.abs(p)} %</span>`}
+const kpiCard=(ic,label,val,sub,chip,sp,href)=>`<a class="kc" href="${href}"><div class="kc-top"><span class="kc-ic">${ui(ic,18)}</span><span class="kc-l">${label}</span>${chip||''}</div><div class="kc-mid"><div><div class="kc-v">${val}</div><div class="kc-s">${sub}</div></div>${sp||''}</div></a>`;
+const niceMax=m=>{for(const s of [4,8,12,20,40,60,100,200,400,1000])if(m<=s)return s;return Math.ceil(m/100)*100};
+const shortD=ms=>new Date(ms).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+let ACT={days:14};
+function actData(){const d=ACT.days;return [['Messages','s1',buckets(arr('chat'),d)],['Modifications','s2',buckets(arr('activity'),d)],['Fichiers','s3',buckets(arr('files'),d)]]}
+function actChart(){const days=ACT.days,S=actData();const W=760,H=250,pl=34,pr=14,pt=14,pb=30;const ymax=niceMax(Math.max(1,...S.flatMap(s=>s[2])));
+ const X=i=>pl+i/(days-1)*(W-pl-pr),Y=v=>H-pb-v/ymax*(H-pt-pb),t0=day0()-(days-1)*DAYMS;
+ const grid=[0,1,2,3,4].map(k=>{const val=ymax*k/4,y=Y(val);return `<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" class="gl"/><text x="${pl-8}" y="${y+4}" text-anchor="end" class="ax">${val}</text>`}).join('');
+ const xs=[...new Set([0,.25,.5,.75,1].map(f=>Math.round(f*(days-1))))].map(i=>`<text x="${X(i)}" y="${H-8}" text-anchor="${i===0?'start':i===days-1?'end':'middle'}" class="ax">${shortD(t0+i*DAYMS)}</text>`).join('');
+ const lines=S.map(([n,c,a])=>{const d=a.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join('');return `<defs><linearGradient id="ag-${c}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="st-${c}" stop-opacity=".22"/><stop offset="1" class="st-${c}" stop-opacity="0"/></linearGradient></defs><path d="${d}L${X(days-1)} ${Y(0)}L${X(0)} ${Y(0)}Z" fill="url(#ag-${c})"/><path d="${d}" class="ln ${c}"/>`}).join('');
+ return `<svg viewBox="0 0 ${W} ${H}" class="actsvg" id="actSvg" role="img" aria-label="Activité du groupe sur ${days} jours">${grid}${xs}${lines}<line id="actX" y1="${pt}" y2="${H-pb}" class="cross" hidden/>${S.map(s=>`<circle id="actP-${s[1]}" r="4.5" class="pt ${s[1]}" hidden/>`).join('')}<rect x="${pl}" y="0" width="${W-pl-pr}" height="${H-pb}" fill="transparent" id="actHit"/></svg><div class="acttip" id="actTip" hidden></div>`}
+function bindAct(){const hit=$('#actHit');if(!hit)return;const days=ACT.days,S=actData();const W=760,H=250,pl=34,pr=14,pt=14,pb=30;const ymax=niceMax(Math.max(1,...S.flatMap(s=>s[2])));const X=i=>pl+i/(days-1)*(W-pl-pr),Y=v=>H-pb-v/ymax*(H-pt-pb),t0=day0()-(days-1)*DAYMS;const svg=$('#actSvg'),tip=$('#actTip');
+ const move=e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)/r.width*W;const i=Math.max(0,Math.min(days-1,Math.round((px-pl)/(W-pl-pr)*(days-1))));
+  const x=$('#actX');x.hidden=false;x.setAttribute('x1',X(i));x.setAttribute('x2',X(i));S.forEach(s=>{const p=$('#actP-'+s[1]);p.hidden=false;p.setAttribute('cx',X(i));p.setAttribute('cy',Y(s[2][i]))});
+  tip.hidden=false;tip.innerHTML=`<b>${new Date(t0+i*DAYMS).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</b>${S.map(s=>`<span><i class="d ${s[1]}"></i>${s[0]}<b>${s[2][i]}</b></span>`).join('')}`;
+  const left=X(i)/W*r.width;tip.style.left=(left>r.width*.62?left-tip.offsetWidth-14:left+14)+'px';tip.style.top='18px'};
+ const out=()=>{$('#actX').hidden=true;S.forEach(s=>$('#actP-'+s[1]).hidden=true);tip.hidden=true};
+ hit.onpointermove=move;hit.onpointerdown=move;hit.onpointerleave=out}
+function actCard(){const d=ACT.days,S=actData(),tot=sum(S.flatMap(s=>s[2]));const prev=sum([buckets(arr('chat'),d,d),buckets(arr('activity'),d,d),buckets(arr('files'),d,d)].flatMap(x=>x));
+ return `<section class="card actcard" id="actCard"><div class="card-head"><div><div class="eyebrow">Activité du groupe</div><div class="bignum">${tot}<small>actions sur ${d} jours</small> ${dchip(tot,prev)}</div></div>
+  <div class="seg" role="tablist">${[7,14,30].map(n=>`<button class="${n===d?'on':''}" onclick="actRange(${n})">${n} j</button>`).join('')}</div></div>
+  <div class="legendx">${S.map(s=>`<span><i class="d ${s[1]}"></i>${s[0]} <b>${sum(s[2])}</b></span>`).join('')}</div>
+  <div class="actwrap">${actChart()}</div>
+  <details class="tblv"><summary>Voir en tableau</summary><table><thead><tr><th>Jour</th>${S.map(s=>`<th>${s[0]}</th>`).join('')}</tr></thead><tbody>${S[0][2].map((_,i)=>`<tr><td>${shortD(day0()-(d-1-i)*DAYMS)}</td>${S.map(s=>`<td>${s[2][i]}</td>`).join('')}</tr>`).reverse().join('')}</tbody></table></details></section>`}
+function actRange(n){ACT.days=n;const c=$('#actCard');if(c){c.outerHTML=actCard();bindAct()}}
+const PRI_L={haute:'Haute',moyenne:'Moyenne',basse:'Basse'},PRI_N={haute:0,moyenne:1,basse:2};
+const owName=t=>t.owner==='all'?'Tout le groupe':t.owner?member(t.owner).name:'Non attribué';
+const prioChip=t=>t.priority?`<span class="pchip ${t.priority}">${PRI_L[t.priority]||t.priority}</span>`:'';
+const ST_PROG={todo:0,doing:45,review:80,fix:30,done:100};
+let CAL={y:new Date().getFullYear(),m:new Date().getMonth()};
+function calNav(d){CAL.m+=d;if(CAL.m<0){CAL.m=11;CAL.y--}if(CAL.m>11){CAL.m=0;CAL.y++}const c=$('#calw');if(c)c.outerHTML=calCard()}
+function calCard(){const {y,m}=CAL;const first=new Date(y,m,1),n=new Date(y,m+1,0).getDate(),off=(first.getDay()+6)%7,today=todayISO();
+ const mark={};arr('tasks').forEach(t=>{if(t.due&&!isDone(t.status))(mark[t.due]=mark[t.due]||{t:0,e:0}).t++});arr('events').forEach(e=>{if(e.date)(mark[e.date]=mark[e.date]||{t:0,e:0}).e++});
+ const cells=[...Array(off).fill('<i></i>'),...Array.from({length:n},(_,k)=>{const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(k+1).padStart(2,'0')}`,mk=mark[iso];return `<a href="#taches" class="cd ${iso===today?'today':''} ${mk?'has':''}" title="${mk?`${mk.t} tâche${mk.t>1?'s':''}, ${mk.e} événement${mk.e>1?'s':''}`:''}">${k+1}${mk?`<b class="${mk.e?'ev':''}"></b>`:''}</a>`})];
+ const nxt=[...arr('events').filter(e=>e.date>=today).map(e=>({d:e.date,t:e.title,k:'Événement'})),...arr('tasks').filter(t=>t.due>=today&&!isDone(t.status)).map(t=>({d:t.due,t:t.title,k:'Échéance'}))].sort((a,b)=>a.d.localeCompare(b.d)).slice(0,3);
+ return `<section class="card calcard" id="calw"><div class="card-head"><h2 style="text-transform:capitalize">${first.toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}</h2><span class="row" style="gap:4px"><button class="btn sm ghost icon" onclick="calNav(-1)" aria-label="Mois précédent">‹</button><button class="btn sm ghost icon" onclick="calNav(1)" aria-label="Mois suivant">›</button></span></div>
+  <div class="cal2"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span>${cells.join('')}</div>
+  <div class="calnext">${nxt.length?nxt.map(x=>`<div><span class="tiny muted">${fmtD(x.d)} · ${x.k}</span><span class="small">${esc(trunc(x.t,38))}</span></div>`).join(''):'<span class="tiny muted">Rien de prévu pour l\'instant.</span>'}</div></section>`}
+const heroArt=`<svg class="heroart" viewBox="0 0 240 190" aria-hidden="true"><defs><linearGradient id="ha1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a98ff"/><stop offset="1" stop-color="#4a56e0"/></linearGradient><linearGradient id="ha2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6d7dff" stop-opacity=".9"/><stop offset="1" stop-color="#2a2f8f" stop-opacity=".9"/></linearGradient><linearGradient id="ha3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b44b8"/><stop offset="1" stop-color="#1a1d5c"/></linearGradient></defs>
+ <g opacity=".95"><polygon points="120,22 176,54 120,86 64,54" fill="url(#ha1)"/><polygon points="64,54 120,86 120,150 64,118" fill="url(#ha2)"/><polygon points="120,86 176,54 176,118 120,150" fill="url(#ha3)"/></g>
+ <g opacity=".55"><polygon points="190,92 222,110 190,128 158,110" fill="url(#ha1)"/><polygon points="158,110 190,128 190,164 158,146" fill="url(#ha2)"/><polygon points="190,128 222,110 222,146 190,164" fill="url(#ha3)"/></g>
+ <g stroke="#fff" stroke-opacity=".35" fill="none"><path d="M120 22 120 86M64 54 120 86 176 54"/></g></svg>`;
 VIEWS.accueil=function(){
  const T=arr('tasks'),done=T.filter(t=>isDone(t.status)).length,pct=T.length?done/T.length:0;
  const mine=T.filter(t=>t.owner===ME.id&&!isDone(t.status)).sort((a,b)=>(a.due||'9').localeCompare(b.due||'9'));
@@ -92,17 +141,22 @@ VIEWS.accueil=function(){
  const files=arr('files').sort((a,b)=>b.ts-a.ts).slice(0,5);const inCall=callPeople();
  const P=pveCfg();const openT=T.filter(t=>!isDone(t.status)),late=openT.filter(t=>t.due&&t.due<todayISO()),allF=arr('files'),onl=members().filter(m=>presState(m.id)==='on').length;
  $('#view').innerHTML=`
- <header class="dh"><div><div class="eyebrow">${fmtDL(todayISO())} · ${esc(plotInfo().name)}</div><h1>Bonjour ${esc(ME.name)}</h1>
-   <p>${mine.length?`Tu as <b>${mine.length} tâche${mine.length>1?'s':''}</b> à faire.`:'Aucune tâche à ton nom pour l\'instant.'} ${cu?`<b>${cu} message${cu>1?'s':''}</b> non lu${cu>1?'s':''}.`:''} ${inCall.length?`<b>${inCall.map(p=>esc(p.name)).join(', ')}</b> ${inCall.length>1?'sont':'est'} en appel.`:''}</p></div>
-   <div class="row"><a class="btn" href="#chat">${ui('chat',16)} Discussion</a><a class="btn" href="#fichiers">${ui('folder',16)} Fichiers</a><a class="btn primary" href="#appel">${ui('phone',16)} ${inCall.length?'Rejoindre l\'appel':'Lancer un appel'}</a></div></header>
-  <section class="kpis">
-   <a class="kpi2" href="#taches"><span class="l">Avancement</span><span class="v">${Math.round(pct*100)}<small>%</small></span><div class="bar"><i style="width:${pct*100}%;background:var(--ok)"></i></div><span class="s">${done} sur ${T.length} tâche${T.length>1?'s':''} terminée${done>1?'s':''}</span></a>
-   <a class="kpi2" href="#taches"><span class="l">Ouvertes</span><span class="v">${openT.length}</span><span class="s">${T.filter(t=>t.status==='doing').length} en cours</span></a>
-   <a class="kpi2 ${late.length?'bad':''}" href="#taches"><span class="l">En retard</span><span class="v">${late.length}</span><span class="s">${late.length?'échéance dépassée':'tout est dans les temps'}</span></a>
-   <a class="kpi2" href="#equipe"><span class="l">En ligne</span><span class="v">${onl}<small>/ ${members().length}</small></span><span class="s">${inCall.length?inCall.length+' en appel':'membres du groupe'}</span></a>
-   <a class="kpi2" href="#fichiers"><span class="l">Fichiers</span><span class="v">${allF.length}</span><span class="s">${fmtSize(allF.reduce((s,f)=>s+(f.size||0),0))} partagés</span></a>
+ <section class="hero2"><div class="hero2-txt"><div class="eyebrow">${fmtDL(todayISO())} · ${esc(plotInfo().name)}</div><h1>Bonjour ${esc(ME.name)}, on avance sur le plot.</h1>
+   <p>${mine.length?`Tu as <b>${mine.length} tâche${mine.length>1?'s':''}</b> à faire.`:'Aucune tâche à ton nom pour l\'instant.'} ${cu?`<b>${cu} message${cu>1?'s':''}</b> non lu${cu>1?'s':''}.`:''} ${inCall.length?`<b>${inCall.map(p=>esc(p.name)).join(', ')}</b> ${inCall.length>1?'sont':'est'} en appel.`:'Le groupe est synchronisé en direct.'}</p>
+   <div class="row" style="margin-top:16px"><a class="btn primary" href="#appel">${ui('phone',16)} ${inCall.length?'Rejoindre l\'appel':'Lancer un appel'}</a><a class="btn" href="#chat">${ui('chat',16)} Discussion</a><a class="btn" href="#serveur">${ui('server',16)} Serveur</a></div></div>${heroArt}</section>
+  <section class="kpis4">
+   ${kpiCard('tasks','Tâches ouvertes',openT.length,`${done} terminée${done>1?'s':''} · ${Math.round(pct*100)} % d'avancement`,dchip(sum(buckets(arr('activity'),7)),sum(buckets(arr('activity'),7,7))),spark(buckets(arr('activity'),14),'var(--s2)'),'#taches')}
+   ${kpiCard('chat','Messages · 7 j',sum(buckets(arr('chat'),7)),`${arr('chat').length} au total`,dchip(sum(buckets(arr('chat'),7)),sum(buckets(arr('chat'),7,7))),spark(buckets(arr('chat'),14),'var(--s1)'),'#chat')}
+   ${kpiCard('folder','Fichiers',allF.length,`${fmtSize(allF.reduce((s,f)=>s+(f.size||0),0))} dans le Drive`,dchip(sum(buckets(allF,7)),sum(buckets(allF,7,7))),spark(buckets(allF,14),'var(--s3)'),'#fichiers')}
+   ${kpiCard('team','Équipe en ligne',`${onl}<small> / ${members().length}</small>`,late.length?`<span style="color:var(--bad)">${late.length} tâche${late.length>1?'s':''} en retard</span>`:'Aucune tâche en retard','',`<span class="stack">${members().map(m=>`<span class="on-m ${presCls(m.id)}">${avatar(m.name,m.color)}<i></i></span>`).join('')}</span>`,'#equipe')}
   </section>
-  ${T.length?`<section class="card" style="margin-bottom:12px"><div class="card-head"><h2>Répartition des tâches</h2><a class="small" href="#taches">Planning</a></div><div class="bar" style="height:10px">${TASK_ST.map(s=>{const n=T.filter(t=>t.status===s[0]).length;return n?`<i style="width:${n/T.length*100}%;background:${s[2]}" title="${s[1]} : ${n}"></i>`:''}).join('')}</div><div class="lgd">${TASK_ST.map(s=>`<span><i style="background:${s[2]}"></i>${s[1]} <b>${T.filter(t=>t.status===s[0]).length}</b></span>`).join('')}</div></section>`:''}
+  <div class="dgrid"><div>${actCard()}</div>
+   <section class="card upc"><div class="card-head"><h2>Prochaines tâches</h2><a class="small" href="#taches">Voir tout</a></div>
+    ${openT.length?`<ul class="uplist">${openT.slice().sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||(PRI_N[a.priority]??1)-(PRI_N[b.priority]??1)).slice(0,5).map(t=>`<li><button class="chk" title="Marquer comme terminée" onclick="setTaskStatus('${t.id}','done')"></button><div class="up-t"><a href="javascript:void 0" onclick="editTask('${t.id}')">${esc(t.title)}</a><span class="tiny muted">${esc(t.code||'')} · ${esc(owName(t))}${t.due?` · <span style="${t.due<todayISO()?'color:var(--bad)':''}">${fmtD(t.due)}</span>`:''}</span></div>${prioChip(t)}</li>`).join('')}</ul>`:'<div class="empty small">Tout est terminé.</div>'}
+    <button class="btn sm" style="margin-top:12px;width:100%;justify-content:center" onclick="editTask()">${ui('plus',14)} Nouvelle tâche</button></section></div>
+  <div class="dgrid2"><section class="card"><div class="card-head"><h2>Suivi des tâches</h2><a class="small" href="#taches">Planning</a></div>
+    ${T.length?`<div class="tblw"><table class="dtbl"><thead><tr><th>Tâche</th><th>Statut</th><th>Responsable</th><th>Priorité</th><th>Avancement</th></tr></thead><tbody>${T.slice().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).slice(0,6).map(t=>{const st=TASK_ST.find(s=>s[0]===t.status)||TASK_ST[0],pr=ST_PROG[t.status]||0,u=t.owner&&t.owner!=='all'?member(t.owner):null;return `<tr onclick="editTask('${t.id}')"><td><b>${esc(trunc(t.title,48))}</b><span class="tiny muted" style="display:block">${esc(t.code||'')}</span></td><td><span class="schip" style="--c:${st[2]}">${st[1]}</span></td><td>${u?`<span class="row" style="gap:7px;flex-wrap:nowrap">${avatar(u.name,u.color)}<span class="small">${esc(u.name)}</span></span>`:`<span class="small muted">${esc(owName(t))}</span>`}</td><td>${prioChip(t)||'<span class="muted">—</span>'}</td><td><div class="prg"><div class="bar"><i style="width:${pr}%;background:${st[2]}"></i></div><span class="tiny muted">${pr} %</span></div></td></tr>`}).join('')}</tbody></table></div>`:'<div class="empty small">Aucune tâche pour l\'instant.</div>'}</section>
+   ${calCard()}</div>
 
   <div class="grid g-3 stagger" style="margin-top:22px">
   <a class="card hover srv-mini" href="#serveur" style="--i:0"><div class="card-head"><h2>Serveurs</h2><span class="small" style="color:var(--accent)">Ouvrir</span></div>
@@ -123,7 +177,7 @@ VIEWS.accueil=function(){
   <section class="card"><div class="card-head"><h2>Ce que le groupe a fait</h2><button class="btn sm ghost" onclick="toggleBell()">Tout voir</button></div>
    <ul class="list feed">${feed.map(a=>`<li class="${a.ts>seen&&a.who!==ME.name?'unread':''}">${avatar(a.who,a.color||colorOf(a.who))}<span class="t small"><b>${esc(a.who)}</b> ${esc(a.verb)} ${a.route?`<a href="#${a.route}">${esc(a.label)}</a>`:esc(a.label)}</span><span class="tiny muted">${ago(a.ts)}</span></li>`).join('')||'<li class="muted small">Les modifications de chacun apparaîtront ici.</li>'}</ul></section>
  </div>`;
- animateRings();countUp();
+ countUp();bindAct();
 };
 
 /* ===================== ÉQUIPE ===================== */
@@ -133,7 +187,7 @@ VIEWS.equipe=function(){const M=members();
  <div class="card"><h2 style="margin-bottom:10px">Inviter le groupe</h2><ol class="steps"><li>Envoie le lien du site à Selene, Aksil et Walid.</li><li>À l'ouverture, chacun clique sur son nom. Ses messages et modifications apparaissent à son nom.</li><li>Pour être prévenu des messages et des appels quand l'onglet est caché : cloche en haut à droite › « Recevoir les messages et appels… ».</li></ol>
  <p class="small muted">Attention : toute personne qui a le lien peut lire et modifier. N'y mettez ni mot de passe ni information personnelle.</p>
  <h3 style="margin-top:18px">Installer l'application</h3><p class="small muted">Le site s'installe comme une app sur ordinateur, Android et iPhone.</p><button class="btn" onclick="installApp()">${ui('download',16)} Installer l'app</button>
- <h3 style="margin-top:18px">Sauvegarde</h3><p class="small muted">Les données sont dans la base partagée, pas dans l'app : mettre à jour ou réinstaller l'app ne fait rien perdre. Une copie est aussi envoyée chaque jour dans le Google Drive de Rayan.</p>
+ <h3 style="margin-top:18px">Sauvegarde</h3><p class="small muted">Les données sont dans la base partagée, pas dans l'app : mettre à jour ou réinstaller l'app ne fait rien perdre. Les fichiers partagés sont rangés dans le Google Drive de l'équipe ; la sauvegarde complète ci-dessous te donne une copie quand tu veux.</p>
  <div class="row"><button class="btn" onclick="backupZip()">${ui('download',16)} Sauvegarde complète (zip, avec les fichiers)</button><button class="btn ghost" onclick="exportAll()">Données seules (JSON)</button></div>
  <h3 style="margin-top:18px">Espaces</h3><p class="small muted">Un espace par promo ou par plot, chacun avec ses membres et ses données.</p><button class="btn" onclick="spacesModal()">${ui('team',16)} Gérer les espaces</button>
  <h3 style="margin-top:18px">Mon identité</h3><p class="small">Connecté en tant que <b>${esc(ME.name)}</b>. <button class="btn sm ghost" onclick="$('#meBtn').click()">Changer</button></p></div></div>`};

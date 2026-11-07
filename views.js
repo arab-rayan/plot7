@@ -90,15 +90,21 @@ VIEWS.accueil=function(){
  const nu=unread();const feed=arr('activity').sort((a,b)=>b.ts-a.ts).slice(0,7);const seen=ls.get(seenKey(),0);
  const msgs=arr('chat').sort((a,b)=>b.ts-a.ts).slice(0,5);const cu=typeof chatUnread==='function'?chatUnread():0;
  const files=arr('files').sort((a,b)=>b.ts-a.ts).slice(0,5);const inCall=callPeople();
- const P=pveCfg();
+ const P=pveCfg();const openT=T.filter(t=>!isDone(t.status)),late=openT.filter(t=>t.due&&t.due<todayISO()),allF=arr('files'),onl=members().filter(m=>presState(m.id)==='on').length;
  $('#view').innerHTML=`
- <section class="hero"><div class="hero-bg"></div><div class="hero-txt">
-  <div class="eyebrow light">${fmtDL(todayISO())} · ${esc(plotInfo().name)}</div><h1>Bonjour ${esc(ME.name)}</h1>
-  <p>${mine.length?`Tu as <b>${mine.length} tâche${mine.length>1?'s':''}</b> à faire.`:'Aucune tâche à ton nom pour l\'instant.'} ${cu?`<b>${cu} message${cu>1?'s':''}</b> non lu${cu>1?'s':''}.`:''} ${inCall.length?`<b>${inCall.map(p=>esc(p.name)).join(', ')}</b> ${inCall.length>1?'sont':'est'} en appel.`:''}</p>
-  <div class="row" style="margin-top:18px"><a class="btn glass" href="#serveur">${ui('server',16)} Serveurs</a><a class="btn glass" href="#chat">${ui('chat',16)} Discussion</a><a class="btn glass" href="#appel">${ui('phone',16)} ${inCall.length?'Rejoindre l\'appel':'Lancer un appel'}</a><a class="btn glass" href="#fichiers">${ui('folder',16)} Fichiers</a></div></div>
-  <div class="hero-ring">${ringSvg(pct,132,'#ffffff',10)}<div class="hero-ring-txt"><b data-count="${Math.round(pct*100)}" data-suf="%">0%</b><span>des tâches terminées</span></div></div></section>
+ <header class="dh"><div><div class="eyebrow">${fmtDL(todayISO())} · ${esc(plotInfo().name)}</div><h1>Bonjour ${esc(ME.name)}</h1>
+   <p>${mine.length?`Tu as <b>${mine.length} tâche${mine.length>1?'s':''}</b> à faire.`:'Aucune tâche à ton nom pour l\'instant.'} ${cu?`<b>${cu} message${cu>1?'s':''}</b> non lu${cu>1?'s':''}.`:''} ${inCall.length?`<b>${inCall.map(p=>esc(p.name)).join(', ')}</b> ${inCall.length>1?'sont':'est'} en appel.`:''}</p></div>
+   <div class="row"><a class="btn" href="#chat">${ui('chat',16)} Discussion</a><a class="btn" href="#fichiers">${ui('folder',16)} Fichiers</a><a class="btn primary" href="#appel">${ui('phone',16)} ${inCall.length?'Rejoindre l\'appel':'Lancer un appel'}</a></div></header>
+  <section class="kpis">
+   <a class="kpi2" href="#taches"><span class="l">Avancement</span><span class="v">${Math.round(pct*100)}<small>%</small></span><div class="bar"><i style="width:${pct*100}%;background:var(--ok)"></i></div><span class="s">${done} sur ${T.length} tâche${T.length>1?'s':''} terminée${done>1?'s':''}</span></a>
+   <a class="kpi2" href="#taches"><span class="l">Ouvertes</span><span class="v">${openT.length}</span><span class="s">${T.filter(t=>t.status==='doing').length} en cours</span></a>
+   <a class="kpi2 ${late.length?'bad':''}" href="#taches"><span class="l">En retard</span><span class="v">${late.length}</span><span class="s">${late.length?'échéance dépassée':'tout est dans les temps'}</span></a>
+   <a class="kpi2" href="#equipe"><span class="l">En ligne</span><span class="v">${onl}<small>/ ${members().length}</small></span><span class="s">${inCall.length?inCall.length+' en appel':'membres du groupe'}</span></a>
+   <a class="kpi2" href="#fichiers"><span class="l">Fichiers</span><span class="v">${allF.length}</span><span class="s">${fmtSize(allF.reduce((s,f)=>s+(f.size||0),0))} partagés</span></a>
+  </section>
+  ${T.length?`<section class="card" style="margin-bottom:12px"><div class="card-head"><h2>Répartition des tâches</h2><a class="small" href="#taches">Planning</a></div><div class="bar" style="height:10px">${TASK_ST.map(s=>{const n=T.filter(t=>t.status===s[0]).length;return n?`<i style="width:${n/T.length*100}%;background:${s[2]}" title="${s[1]} : ${n}"></i>`:''}).join('')}</div><div class="lgd">${TASK_ST.map(s=>`<span><i style="background:${s[2]}"></i>${s[1]} <b>${T.filter(t=>t.status===s[0]).length}</b></span>`).join('')}</div></section>`:''}
 
- <div class="grid g-3 stagger" style="margin-top:22px">
+  <div class="grid g-3 stagger" style="margin-top:22px">
   <a class="card hover srv-mini" href="#serveur" style="--i:0"><div class="card-head"><h2>Serveurs</h2><span class="small" style="color:var(--accent)">Ouvrir</span></div>
    <ul class="list">${servers().map(x=>`<li><span class="row" style="flex-wrap:nowrap;gap:10px">${icon('serveur',26)}<span><b class="small">${esc(x.name)}</b><span class="tiny muted mono" style="display:block">${esc(x.host)}</span></span></span>${svPill(x.id)}</li>`).join('')||'<li class="muted small">Aucun serveur : ajoute-le dans la page Serveurs.</li>'}</ul></a>
   <div class="card" style="--i:1"><div class="card-head"><h2>Le groupe</h2><a class="small" href="#equipe">Équipe</a></div>

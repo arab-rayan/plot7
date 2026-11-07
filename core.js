@@ -108,7 +108,7 @@ function renderGate(){const box=$('#whoGrid');if(!box||!GATE_ENTER)return;
 function syncMe(){if(!ME?.id)return;const m=members().find(x=>x.id===ME.id);if(m&&(m.name!==ME.name||m.color!==ME.color)){ME={...ME,name:m.name,color:m.color};ss.set(KEY('me'),ME)}}
 function gate(){
  const g=document.createElement('div');g.className='gate';g.id='gate';
- g.innerHTML=`<div class="gate-card"><div class="row" style="gap:12px"><div class="brand-mark">${icon('serveur',30)}</div><div><div class="eyebrow" style="color:#9fb0dd" id="gateEyebrow">BTS SIO SISR · Lycée Turgot</div><h1 id="gateTitle">${esc(plotInfo().name)}</h1></div></div>
+ g.innerHTML=`<div class="gate-card"><div class="row" style="gap:12px"><div class="brand-mark">${icon('serveur',30)}</div><div><div class="eyebrow" id="gateEyebrow">BTS SIO SISR · Lycée Turgot</div><h1 id="gateTitle">${esc(plotInfo().name)}</h1></div></div>
  <div class="space-sw"><span>Espace</span><select id="spaceSel" aria-label="Choisir l'espace (promo ou plot)"><option>${esc(plotInfo().name)}</option></select><button class="btn sm glass" id="newSpaceBtn" type="button">${ui('plus',14)} Nouvel espace</button></div>
  <p>L'espace de travail du plot : le serveur Proxmox, l'infrastructure, les tâches, la discussion, les fichiers et les appels. Clique sur ton nom pour entrer.</p>
  <div class="who-grid" id="whoGrid"></div>

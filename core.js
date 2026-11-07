@@ -39,6 +39,7 @@ const pveCfg=()=>({...DEFAULT_PVE,...(D.meta.get('pve')||{})});
 
 async function initStore(){
  try{if(window.FIREBASE_CONFIG&&window.firebase){if(!firebase.apps.length)firebase.initializeApp(window.FIREBASE_CONFIG);DBH=firebase.firestore();try{DBH.settings({experimentalForceLongPolling:true,merge:true})}catch(e){}FIRE=true}}catch(e){console.error(e);DBH=null}
+ if(FIRE&&firebase.auth){try{await authGate()}catch(e){console.error(e)}}
  if(!DBH){LOCAL=true;localStoreInit()}
  COLS.forEach(subscribe);
  if(FIRE)DBH.collection('spaces').onSnapshot(s=>{SPACES=new Map(s.docs.map(d=>[d.id,{id:d.id,...d.data()}]));renderGate(true);updateShellBits();if(CUR==='equipe')scheduleRender()},()=>{});
@@ -129,7 +130,7 @@ function startPresence(){if(BEAT)return;beat();BEAT=setInterval(()=>{beat();idle
 /* Hors ligne tout de suite quand on ferme l'onglet ou l'app */
 async function goOffline(){if(!ME||!DBH)return;try{await ref('presence').doc(ME.id).set({name:ME.name,color:ME.color,ts:Date.now(),off:true})}catch(e){}}
 addEventListener('pagehide',()=>{if(!ME||!FIRE||!window.FIREBASE_CONFIG)return;const C=window.FIREBASE_CONFIG;
- try{fetch(`https://firestore.googleapis.com/v1/projects/${C.projectId}/databases/(default)/documents/${PREFIX_DB}presence/${ME.id}?key=${C.apiKey}`,{method:'PATCH',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{name:{stringValue:ME.name},color:{stringValue:ME.color||''},ts:{integerValue:String(Date.now())},off:{booleanValue:true}}})})}catch(e){}});
+ try{fetch(`https://firestore.googleapis.com/v1/projects/${C.projectId}/databases/(default)/documents/${PREFIX_DB}presence/${ME.id}?key=${C.apiKey}`,{method:'PATCH',keepalive:true,headers:{'Content-Type':'application/json',...(AUTHTOK?{Authorization:'Bearer '+AUTHTOK}:{})},body:JSON.stringify({fields:{name:{stringValue:ME.name},color:{stringValue:ME.color||''},ts:{integerValue:String(Date.now())},off:{booleanValue:true}}})})}catch(e){}});
 /* Déconnexion automatique après 30 minutes sans rien faire (sauf pendant un appel) */
 const IDLE_MAX=30*60000;
 function idleCheck(){if(!ME)return;if(typeof CALL!=='undefined'&&CALL.in)return;if(Date.now()-LAST_ACT>IDLE_MAX)autoLogout()}
@@ -290,8 +291,8 @@ document.addEventListener('focusout',()=>setTimeout(()=>{if(!/INPUT|TEXTAREA|SEL
 
 /* ===================== Photo de profil ===================== */
 function meMenu(){const o=openModal('Mon profil',`<div class="me-box"><label class="me-pic" title="Changer ma photo">${avatar(ME.name,ME.color,'xl')}<span class="me-cam">${ui('image',16)}</span><input type="file" accept="image/*" hidden onchange="setPhoto(ME.id,this.files[0])"></label>
- <div><h3 style="margin:0">${esc(ME.name)}</h3><p class="small muted" style="margin:4px 0 12px">Touche ta photo pour la changer.</p><div class="row" style="gap:8px">${members().find(m=>m.id===ME.id)?.photo?`<button class="btn sm" onclick="setPhoto(ME.id,null)">${ui('trash',14)} Retirer la photo</button>`:''}<button class="btn sm" id="switchMe">Changer d'identité</button></div></div></div>`);
- $('#switchMe',o).onclick=async()=>{closeModal();if(typeof leaveCall==='function')await leaveCall();await goOffline();ss.set(KEY('me'),null);ME=null;location.reload()}}
+ <div><h3 style="margin:0">${esc(ME.name)}</h3><p class="small muted" style="margin:4px 0 12px">Touche ta photo pour la changer.</p><div class="row" style="gap:8px">${members().find(m=>m.id===ME.id)?.photo?`<button class="btn sm" onclick="setPhoto(ME.id,null)">${ui('trash',14)} Retirer la photo</button>`:''}<button class="btn sm" id="switchMe">Changer d'identité</button><button class="btn sm" id="lockDev">${ui('close',14)} Verrouiller cet appareil</button></div></div></div>`);
+ $('#lockDev',o).onclick=lockDevice;$('#switchMe',o).onclick=async()=>{closeModal();if(typeof leaveCall==='function')await leaveCall();await goOffline();ss.set(KEY('me'),null);ME=null;location.reload()}}
 /* recadre au centre en 160×160, JPEG léger (~10 Ko), stocké avec le membre */
 function squarePhoto_unused(file){return new Promise((res,rej)=>{const img=new Image();const u=URL.createObjectURL(file);img.onload=()=>{const S=160,c=document.createElement('canvas');c.width=c.height=S;const k=Math.min(img.width,img.height);c.getContext('2d').drawImage(img,(img.width-k)/2,(img.height-k)/2,k,k,0,0,S,S);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',0.82))};img.onerror=()=>{URL.revokeObjectURL(u);rej()};img.src=u})}
 async function setPhoto(id,file){if(file){if(!/^image\//.test(file.type))return toast('Choisis une image.','bad');return openCropper(id,file)}
@@ -329,3 +330,47 @@ function openCropper(id,file){const img=new Image();const url=URL.createObjectUR
   $('#cSave',o).onclick=()=>{const out=document.createElement('canvas');out.width=out.height=256;draw(out.getContext('2d'),256);URL.revokeObjectURL(url);savePhoto(id,out.toDataURL('image/jpeg',0.85))};
   paint()};
  img.src=url}
+
+
+/* ===================== Verrou : mot de passe commun ===================== */
+/* Le mot de passe n'est écrit nulle part dans le site : il est vérifié par Firebase Authentication,
+   et les règles de la base refusent toute lecture ou écriture sans connexion. L'appareil est mémorisé 30 jours. */
+const AUTH_EMAIL='equipe@plot7-turgot.app',AUTH_DAYS=30,LOCK_MAX=5,LOCK_MIN=15;
+let AUTH=null,AUTHTOK='';
+const lockSt=()=>{try{return JSON.parse(localStorage.getItem('p7-lk')||'{}')}catch(e){return {}}};
+const lockSave=o=>{try{localStorage.setItem('p7-lk',JSON.stringify(o))}catch(e){}};
+async function authGate(){AUTH=firebase.auth();try{await AUTH.setPersistence(firebase.auth.Auth.Persistence.LOCAL)}catch(e){}
+ AUTH.onIdTokenChanged(u=>{if(u)u.getIdToken().then(t=>AUTHTOK=t).catch(()=>{});else AUTHTOK=''});
+ const u=await new Promise(res=>{const off=AUTH.onAuthStateChanged(x=>{off();res(x)})});
+ const ts=+localStorage.getItem('p7-auth-ts')||0;
+ if(u&&Date.now()-ts<AUTH_DAYS*864e5){u.getIdToken().then(t=>AUTHTOK=t).catch(()=>{});return}
+ if(u)await AUTH.signOut();
+ await showLock()}
+const padlockSvg=()=>`<svg viewBox="0 0 120 140" class="padlock" aria-hidden="true"><g class="shackle"><path d="M34 62V44a26 26 0 0 1 52 0v18" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round"/></g><rect x="18" y="60" width="84" height="66" rx="15" fill="currentColor"/><circle cx="60" cy="89" r="8.5" fill="#0b1430"/><rect x="55.5" y="93" width="9" height="19" rx="4.5" fill="#0b1430"/></svg>`;
+function showLock(){return new Promise(done=>{
+ const L=document.createElement('div');L.className='lock';L.id='lock';
+ L.innerHTML=`<div class="lock-card"><div class="lock-ic">${padlockSvg()}</div><h1>Accès privé</h1><p class="lock-sub" id="lkMsg">Entre le mot de passe du groupe.</p>
+  <form id="lkForm" autocomplete="off"><div class="lock-field"><input id="lkPw" type="password" placeholder="Mot de passe" autocomplete="current-password" autocapitalize="off" spellcheck="false" aria-label="Mot de passe"><button type="button" id="lkEye" aria-label="Afficher le mot de passe">${ui('eye',18)}</button></div>
+  <button class="btn primary lg" id="lkGo" type="submit" style="width:100%;justify-content:center">Déverrouiller</button></form>
+  <p class="tiny" style="margin-top:14px;color:#8fa2d6">Cet appareil sera mémorisé ${AUTH_DAYS} jours. ${LOCK_MAX} erreurs de suite bloquent l'accès ${LOCK_MIN} minutes.</p></div>`;
+ document.body.appendChild(L);
+ const msg=$('#lkMsg',L),pw=$('#lkPw',L),go=$('#lkGo',L),form=$('#lkForm',L);let tm=null;
+ const say=(t,cls)=>{msg.textContent=t;msg.className='lock-sub '+(cls||'')};
+ const state=cls=>{L.classList.remove('bad','ok','out');if(cls)L.classList.add(cls)};
+ $('#lkEye',L).onclick=()=>{pw.type=pw.type==='password'?'text':'password'};
+ function checkBlock(){const s=lockSt();if(s.until&&s.until>Date.now()){state('out');pw.disabled=go.disabled=true;const tick=()=>{const r=Math.max(0,s.until-Date.now());if(r<=0){clearInterval(tm);lockSave({n:0});pw.disabled=go.disabled=false;state();say('Tu peux réessayer.');pw.focus();return}
+   say(`Accès bloqué. Réessaie dans ${String(Math.floor(r/60000)).padStart(2,'0')}:${String(Math.floor(r/1000)%60).padStart(2,'0')}.`,'err')};clearInterval(tm);tick();tm=setInterval(tick,500);return true}return false}
+ checkBlock();
+ form.onsubmit=async e=>{e.preventDefault();if(checkBlock()||!pw.value)return;go.disabled=true;state();say('Vérification…');
+  try{await AUTH.signInWithEmailAndPassword(AUTH_EMAIL,pw.value);
+   try{localStorage.setItem('p7-auth-ts',String(Date.now()))}catch(e){}lockSave({n:0});state('ok');say('Bienvenue !','okc');
+   setTimeout(()=>{L.style.transition='opacity .45s';L.style.opacity='0';setTimeout(()=>{L.remove();done()},450)},950)}
+  catch(err){go.disabled=false;const c=err.code||'';
+   if(c==='auth/network-request-failed'){say('Pas de connexion à internet.','err');return}
+   const s=lockSt();let n=(s.n||0)+1;if(c==='auth/too-many-requests')n=LOCK_MAX;
+   pw.value='';state('bad');setTimeout(()=>L.classList.remove('bad'),650);
+   if(n>=LOCK_MAX){lockSave({n,until:Date.now()+LOCK_MIN*60000});setTimeout(checkBlock,700)}
+   else{lockSave({n});say(`Mot de passe incorrect. Il te reste ${LOCK_MAX-n} essai${LOCK_MAX-n>1?'s':''}.`,'err');pw.focus()}}};
+ setTimeout(()=>pw.focus(),200)})}
+async function lockDevice(){try{await goOffline()}catch(e){}try{if(typeof gDisconnect==='function')await gDisconnect(true)}catch(e){}
+ try{await AUTH?.signOut()}catch(e){}try{localStorage.removeItem('p7-auth-ts')}catch(e){}ss.set(KEY('me'),null);location.reload()}

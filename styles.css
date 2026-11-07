@@ -780,3 +780,19 @@ details summary{cursor:pointer;color:var(--muted)}
 .crop-mask{position:absolute;inset:0;pointer-events:none;border-radius:50%;box-shadow:0 0 0 999px rgba(5,10,25,.55);outline:2px solid rgba(255,255,255,.85);outline-offset:-1px}
 .crop-tools{display:flex;align-items:center;gap:8px;margin-top:14px}
 .crop-tools input[type=range]{flex:1;accent-color:var(--accent)}
+
+/* ===== Verrou ===== */
+.lock{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:20px;background:radial-gradient(1000px 600px at 20% 10%,#2549b8,transparent),linear-gradient(160deg,#0b1430,#13285c);--lc:#7aa2ff;color:#fff}
+.lock.bad{animation:lkflash .6s}.lock.out{--lc:#ff4d5e;background:radial-gradient(900px 600px at 50% 30%,#6b1220,transparent),linear-gradient(160deg,#1a0910,#2a0c16)}.lock.ok{--lc:#2fd08a}.lock.bad{--lc:#ff4d5e}
+.lock-card{width:min(390px,100%);text-align:center;padding:30px 26px;border-radius:22px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(14px);box-shadow:0 30px 80px rgba(0,0,0,.45)}
+.lock.bad .lock-card{animation:lkshake .55s}.lock.out .lock-card{border-color:rgba(255,77,94,.5);box-shadow:0 0 60px rgba(255,77,94,.25)}
+.lock-card h1{color:#fff;margin:6px 0 4px;font-size:26px}.lock-sub{margin:0 0 18px;color:#b6c4ee;min-height:22px;font-size:14.5px}.lock-sub.err{color:#ff8b97}.lock-sub.okc{color:#5eeaa6}
+.lock-ic{width:96px;height:112px;margin:0 auto;color:var(--lc);filter:drop-shadow(0 0 18px color-mix(in srgb,var(--lc) 55%,transparent));transition:color .3s}
+.padlock{width:100%;height:100%;overflow:visible}.shackle{transform-origin:86px 62px;transition:transform .55s cubic-bezier(.3,1.5,.5,1)}
+.lock.ok .shackle{transform:translate(0,-15px) rotate(-32deg)}.lock.out .lock-ic{animation:lkpulse 1.1s infinite}
+.lock-field{position:relative;margin-bottom:12px}.lock-field input{width:100%;padding:14px 46px 14px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(8,16,40,.55);color:#fff;font-size:16px;outline:none;text-align:center;letter-spacing:.04em}
+.lock-field input:focus{border-color:var(--lc);box-shadow:0 0 0 3px color-mix(in srgb,var(--lc) 30%,transparent)}.lock-field input:disabled{opacity:.5}
+.lock-field button{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:0;color:#9fb0dd;padding:8px;cursor:pointer}
+@keyframes lkshake{0%,100%{transform:translateX(0)}15%{transform:translateX(-12px)}30%{transform:translateX(10px)}45%{transform:translateX(-8px)}60%{transform:translateX(6px)}80%{transform:translateX(-3px)}}
+@keyframes lkflash{0%{box-shadow:inset 0 0 0 100vmax rgba(255,50,70,.28)}100%{box-shadow:inset 0 0 0 100vmax rgba(255,50,70,0)}}
+@keyframes lkpulse{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}

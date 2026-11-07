@@ -8,3 +8,5 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "162542239096",
   appId: "1:162542239096:web:f0ae12a54752db16b79c8d"
 };
+
+window.GOOGLE_CLIENT_ID='162542239096-niu976ju5r135ihmta15pjktagelaqnu.apps.googleusercontent.com';

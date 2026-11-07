@@ -1,7 +1,37 @@
 /* ===================== FICHIERS ===================== */
-/* Les fichiers sont découpés en morceaux de 700 Ko stockés dans Firestore (offre gratuite, sans carte bancaire).
-   Limite : 25 Mo par fichier, environ 700 Mo au total pour rester dans le gigaoctet gratuit. */
-const CHUNK=700*1024,MAX_FILE=25*1048576,QUOTA=1073741824;
+/* Les fichiers sont envoyés dans un dossier Google Drive partagé (15 Go gratuits) ; Firestore ne garde que le nom et le lien.
+   Les anciens fichiers (découpés en morceaux dans Firestore) restent lisibles. Photos réduites automatiquement. */
+const CHUNK=700*1024,MAX_FILE=150*1048576,GSCOPE='https://www.googleapis.com/auth/drive';
+let GT={tok:null,exp:0};
+try{const o=JSON.parse(sessionStorage.getItem('p7-gt')||'null');if(o&&o.exp>Date.now()+60000)GT=o}catch(e){}
+const gLoad=()=>new Promise((res,rej)=>{if(window.google?.accounts?.oauth2)return res();const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=res;s.onerror=rej;document.head.appendChild(s)});
+async function gToken(){if(GT.tok&&Date.now()<GT.exp-60000)return GT.tok;
+ try{await gLoad()}catch(e){toast('Impossible de joindre Google (réseau bloqué ?).','bad');return null}
+ return new Promise(res=>{const tc=google.accounts.oauth2.initTokenClient({client_id:window.GOOGLE_CLIENT_ID,scope:GSCOPE,
+  callback:r=>{if(r.access_token){GT={tok:r.access_token,exp:Date.now()+(+r.expires_in||3600)*1000};try{sessionStorage.setItem('p7-gt',JSON.stringify(GT));localStorage.setItem('p7-g','1')}catch(e){}gPaint();res(GT.tok)}else res(null)},
+  error_callback:()=>res(null)});tc.requestAccessToken({prompt:''})})}
+async function gFetch(url,o={}){let t=await gToken();if(!t)throw new Error('nogoogle');const go=()=>fetch(url,{...o,headers:{...(o.headers||{}),Authorization:'Bearer '+t}});let r=await go();if(r.status===401){GT={tok:null,exp:0};t=await gToken();if(!t)throw new Error('nogoogle');r=await go()}return r}
+async function gFolder(){const m=D.meta.get('drive');if(m?.folderId)return m.folderId;
+ const r=await gFetch('https://www.googleapis.com/drive/v3/files',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Plot 7 – fichiers',mimeType:'application/vnd.google-apps.folder'})});
+ if(!r.ok)throw new Error('folder');const j=await r.json();await put('meta','drive',{folderId:j.id,ownerId:ME.id,ownerName:ME.name});return j.id}
+function gUpload(file,folder,onp){return new Promise(async(res,rej)=>{try{
+ const r=await gFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id',{method:'POST',headers:{'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':file.type||'application/octet-stream'},body:JSON.stringify({name:file.name,parents:[folder]})});
+ if(!r.ok)return rej(new Error(r.status===404?'noaccess':'init'));const loc=r.headers.get('Location');
+ const x=new XMLHttpRequest();x.open('PUT',loc);x.upload.onprogress=e=>{if(e.lengthComputable)onp(e.loaded/e.total)};x.onload=()=>{try{x.status<300?res(JSON.parse(x.responseText).id):rej(new Error('put'))}catch(e){rej(e)}};x.onerror=()=>rej(new Error('net'));x.send(file)}catch(e){rej(e)}})}
+async function shrinkImage(file){if(!/^image\/(jpeg|png|webp)$/.test(file.type)||file.size<350*1024)return file;
+ try{const bm=await createImageBitmap(file,{imageOrientation:'from-image'});const k=Math.min(1,1600/Math.max(bm.width,bm.height));const w=Math.round(bm.width*k),h=Math.round(bm.height*k);
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,w,h);cx.drawImage(bm,0,0,w,h);
+  const b=await new Promise(r=>cv.toBlob(r,'image/jpeg',0.82));if(!b||(k===1&&b.size>=file.size*0.9))return file;
+  return new File([b],file.name.replace(/\.[^.]+$/,'')+'.jpg',{type:'image/jpeg'})}catch(e){return file}}
+function gStatus(){const m=D.meta.get('drive');const owner=m&&m.ownerId===ME?.id;
+ if(!GT.tok)return `<button class="btn" onclick="gConnect()">${ui('refresh',15)} Se connecter à Google Drive</button><span class="tiny muted">Nécessaire pour envoyer et ouvrir les fichiers</span>`;
+ return `<span class="tiny"><b>Drive connecté</b> · 15 Go · photos réduites automatiquement</span><span class="row" style="gap:6px">${m?.folderId?`<a class="btn sm ghost" target="_blank" rel="noopener" href="https://drive.google.com/drive/folders/${m.folderId}">Ouvrir le dossier</a>`:''}${owner?`<button class="btn sm ghost" onclick="gShare()">Partager avec l'équipe</button>`:''}</span>`}
+function gPaint(){const el=$('#gst');if(el)el.innerHTML=gStatus()}
+async function gConnect(){if(!await gToken())return toast('Connexion Google annulée.','bad');try{await gFolder()}catch(e){}gPaint()}
+async function gShare(){const v=await promptBox('Adresses Gmail à qui donner accès (séparées par des virgules)');if(!v)return;let ok=0;const f=await gFolder();
+ for(const em of v.split(/[,\s;]+/).filter(x=>x.includes('@'))){try{const r=await gFetch(`https://www.googleapis.com/drive/v3/files/${f}/permissions?sendNotificationEmail=false`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'writer',type:'user',emailAddress:em})});if(r.ok)ok++}catch(e){}}
+ toast(ok?`Dossier partagé avec ${ok} personne${ok>1?'s':''}.`:'Partage impossible (adresse invalide ?).',ok?'':'bad')}
+document.addEventListener('pointerdown',()=>{if(!GT.tok&&localStorage.getItem('p7-g')&&typeof ME!=='undefined'&&ME&&!window.__gtry){window.__gtry=1;gToken().then(gPaint).catch(()=>{})}},{once:false});
 let FL={path:'',up:[]};
 const BLOBS=new Map();
 const extOf=n=>(n.split('.').pop()||'').toLowerCase();
@@ -22,7 +52,7 @@ VIEWS.fichiers=function(){
  $('#view').innerHTML=pageHead('Fichiers','Partage des fichiers et des dossiers entre vous quatre : captures, configs, procédures. Glisse-les directement sur la page.',
   `<button class="btn" onclick="newFolder()">${ui('folderplus',16)} Nouveau dossier</button><label class="btn">${ui('folder',16)} Envoyer un dossier<input type="file" webkitdirectory multiple hidden onchange="pickUpload(this)"></label><label class="btn primary">${ui('upload',16)} Envoyer des fichiers<input type="file" multiple hidden onchange="pickUpload(this)"></label>`)+
  `<div class="row between" style="margin-bottom:14px"><nav class="crumbs">${crumbs.map(([k,l],i)=>i<crumbs.length-1?`<a href="javascript:void 0" onclick="goFolder('${esc(k)}')">${esc(l)}</a><span>›</span>`:`<b>${esc(l)}</b>`).join('')}</nav>
-  <div class="quota" title="Offre gratuite Firestore : 1 Go (les fichiers prennent environ 1,4 fois leur taille)"><div class="gbar"><i style="width:${Math.min(100,used*1.4/QUOTA*100).toFixed(1)}%"></i></div><span class="tiny muted">${fmtSize(used)} partagés · limite 25 Mo par fichier</span></div></div>
+  <div class="quota" id="gst">${gStatus()}</div></div>
  <div id="upl">${uplHtml()}</div>
  <div class="card flist dropzone" id="dz">${dirs.length||files.length?`<table><thead><tr><th>Nom</th><th>Taille</th><th>Ajouté par</th><th>Date</th><th></th></tr></thead><tbody>
   ${p?`<tr class="up-row" onclick="goFolder('${esc(p.split('/').slice(0,-1).join('/'))}')"><td colspan="5"><span class="row">${ui('folder',18)} ..</span></td></tr>`:''}
@@ -54,19 +84,20 @@ async function uploadMany(list,base){if(!list.length)return;let n=0;
  if(n)logAct(`a partagé ${n} fichier${n>1?'s':''}`,`dans « ${base||'Fichiers du plot'} »`,'fichiers');
  setTimeout(uplRefresh,4200)}
 async function uploadOne(file,path,quietLog){
- const u={name:(path?path+'/':'')+file.name,p:0};FL.up.push(u);uplRefresh();
- if(file.size>MAX_FILE){u.err='Trop gros (max 25 Mo)';u.done=Date.now();uplRefresh();return null}
- if(usedBytes()+file.size>QUOTA*0.7){u.err='Espace gratuit presque plein';u.done=Date.now();uplRefresh();return null}
- try{await ensureFolders(path);const id=uid('f');const n=Math.max(1,Math.ceil(file.size/CHUNK));
-  for(let i=0;i<n;i++){const b64=await b64Of(file.slice(i*CHUNK,(i+1)*CHUNK));await ref('chunks').doc(id+'_'+i).set({d:b64});u.p=(i+1)/n;uplRefresh()}
-  const meta={name:file.name,path,size:file.size,type:file.type||'',chunks:n,uid:ME.id,byName:ME.name,ts:Date.now()};
-  await ref('files').doc(id).set(meta);D.files.set(id,{id,...meta});u.done=Date.now();uplRefresh();if(!quietLog)logAct('a partagé',file.name,'fichiers');if(CUR==='fichiers')scheduleRender();return{id,...meta}}
- catch(e){u.err=e.code==='resource-exhausted'?'Quota du jour atteint':'Échec de l\'envoi';u.done=Date.now();uplRefresh();console.error(e);return null}}
+ const u={name:(path?path+'/':'')+file.name,p:0};FL.up.push(u);uplRefresh();const fail=m=>{u.err=m;u.done=Date.now();uplRefresh();return null};
+ if(file.size>MAX_FILE)return fail('Trop gros (max 150 Mo)');
+ try{if(!await gToken())return fail('Connexion Google requise');
+  file=await shrinkImage(file);const folder=await gFolder();await ensureFolders(path);const id=uid('f');
+  const did=await gUpload(file,folder,p=>{u.p=p;uplRefresh()});
+  const meta={name:file.name,path,size:file.size,type:file.type||'',chunks:0,drive:did,uid:ME.id,byName:ME.name,ts:Date.now()};
+  await ref('files').doc(id).set(meta);D.files.set(id,{id,...meta});u.p=1;u.done=Date.now();uplRefresh();if(!quietLog)logAct('a partagé',file.name,'fichiers');if(CUR==='fichiers')scheduleRender();return{id,...meta}}
+ catch(e){console.error(e);return fail(e.message==='noaccess'?'Pas d\'accès au dossier Drive':'Échec de l\'envoi')}}
 function b64Of(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]||'');r.onerror=rej;r.readAsDataURL(blob)})}
 async function fileBlob(id){if(BLOBS.has(id))return BLOBS.get(id);const f=D.files.get(id);if(!f)throw new Error('Fichier introuvable');
+ if(f.drive){const r=await gFetch(`https://www.googleapis.com/drive/v3/files/${f.drive}?alt=media`);if(!r.ok)throw new Error('drive '+r.status);const b=new Blob([await r.blob()],{type:f.type||'application/octet-stream'});BLOBS.set(id,b);return b}
  const parts=[];for(let i=0;i<f.chunks;i++){const s=await ref('chunks').doc(id+'_'+i).get();const d=s.data()?.d||'';const bin=atob(d);const u8=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)u8[k]=bin.charCodeAt(k);parts.push(u8)}
  const b=new Blob(parts,{type:f.type||'application/octet-stream'});BLOBS.set(id,b);return b}
-async function downloadFile(id){const f=D.files.get(id);if(!f)return;toast('Téléchargement de '+f.name+'…');try{saveFile(f.name,await fileBlob(id))}catch(e){toast('Téléchargement impossible.','bad')}}
+async function downloadFile(id){const f=D.files.get(id);if(!f)return;toast('Téléchargement de '+f.name+'…');try{saveFile(f.name,await fileBlob(id))}catch(e){toast(String(e.message).includes('404')?'Pas d\'accès au dossier Drive : demande à celui qui l\'a créé de le partager avec toi.':'Téléchargement impossible.','bad')}}
 async function previewFile(id){const f=D.files.get(id);if(!f)return;
  if(!(isImg(f)||isPdf(f)||(isText(f)&&f.size<300000)))return downloadFile(id);
  const o=openModal(f.name,`<div class="preview"><div class="empty small">Chargement…</div></div><div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn primary" onclick="downloadFile('${f.id}')">${ui('download',16)} Télécharger</button></div>`,true);
@@ -74,7 +105,9 @@ async function previewFile(id){const f=D.files.get(id);if(!f)return;
   if(isImg(f))box.innerHTML=`<img src="${url}" alt="${esc(f.name)}">`;else if(isPdf(f))box.innerHTML=`<iframe src="${url}" title="${esc(f.name)}"></iframe>`;else box.innerHTML=`<pre>${esc(await b.text())}</pre>`}
  catch(e){const box=$('.preview',o);if(box)box.innerHTML='<div class="empty small">Aperçu impossible.</div>'}}
 async function delFile(id,silent){const f=D.files.get(id);if(!f)return;if(!silent&&!await confirmBox(`Supprimer « ${f.name} » pour tout le groupe ?`))return;
- for(let i=0;i<f.chunks;i++)ref('chunks').doc(id+'_'+i).delete().catch(()=>{});await del('files',id,silent?null:['a supprimé le fichier',f.name,'fichiers'])}
+ for(let i=0;i<f.chunks;i++)ref('chunks').doc(id+'_'+i).delete().catch(()=>{});
+ if(f.drive)gFetch(`https://www.googleapis.com/drive/v3/files/${f.drive}`,{method:'DELETE'}).then(r=>{if(!r.ok)return gFetch(`https://www.googleapis.com/drive/v3/files/${f.drive}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({trashed:true})})}).catch(()=>{});
+ await del('files',id,silent?null:['a supprimé le fichier',f.name,'fichiers'])}
 async function delFolder(p){const L=under(p);if(!await confirmBox(`Supprimer le dossier « ${p.split('/').pop()} » et ses ${L.length} fichier${L.length>1?'s':''} ?`))return;
  for(const f of L)await delFile(f.id,true);arr('folders').filter(d=>d.path===p||d.path.startsWith(p+'/')).forEach(d=>del('folders',d.id));logAct('a supprimé le dossier',p,'fichiers')}
 async function newFolder(){const n=await promptBox('Nom du nouveau dossier');if(!n)return;const name=n.replace(/[\/\\]/g,'-');await ensureFolders([FL.path,name].filter(Boolean).join('/'));logAct('a créé le dossier',name,'fichiers');scheduleRender()}

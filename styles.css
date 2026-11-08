@@ -957,3 +957,16 @@ input,select,textarea{background:var(--surface-2);border-color:var(--line-2)}
 @media (min-width:861px){.tech-svg{max-height:calc(100vh - 250px)}}
 @media (max-width:760px){.lrow{grid-template-columns:104px minmax(0,1fr) 22px;gap:10px}}
 .dtbl td,.dtbl th{white-space:nowrap}.dtbl td.role{max-width:230px;overflow:hidden;text-overflow:ellipsis}
+/* ---- mobile : une seule colonne, rien ne dépasse ---- */
+@media (max-width:1100px){.dgrid,.dgrid2{grid-template-columns:minmax(0,1fr)}.kpis4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:860px){
+ html,body{max-width:100%;overflow-x:hidden}
+ .content,.view,.main{min-width:0;max-width:100%}
+ .grid.g-2,.grid.g-3{grid-template-columns:minmax(0,1fr)}
+ .kc-mid{flex-wrap:wrap}.kc-s{overflow-wrap:anywhere}
+ .hero2{padding:20px}.hero2 .row .btn{flex:1 1 auto;justify-content:center}
+ .dtbl td.role{display:none}.dtbl th:nth-child(4){display:none}
+ .lrow{grid-template-columns:92px minmax(0,1fr) 22px}.lwho b{font-size:12.5px}
+ .card{padding:16px}
+}
+@media (max-width:860px){.dtbl.inv th:nth-child(2),.dtbl.inv td:nth-child(2),.dtbl.inv th:nth-child(5),.dtbl.inv td:nth-child(5){display:none}}

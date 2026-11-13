@@ -6,7 +6,7 @@ const DEFAULT_MEMBERS=[
  {id:'p3',name:'Aksil',role:'',color:'#8b4fd1'},
  {id:'p4',name:'Walid',role:'',color:'#1f9d74'}
 ];
-const DEFAULT_PVE={host:'10.113.4.1',port:8006,target:'10.113.7.1'};
+const DEFAULT_PVE={host:'10.113.3.5',port:8006,target:''};
 const EQ={
  cloud:{l:'Internet',cat:'Réseau',d:'Le réseau public mondial. Tout ce qui vient d\'Internet est considéré comme non fiable : il doit passer par un pare-feu avant d\'atteindre le SI.'},
  box:{l:'Box opérateur (FAI)',cat:'Réseau',d:'Fournie par l\'opérateur, elle relie le bâtiment à Internet (fibre ou ADSL). Elle sert de point d\'entrée WAN ; le pare-feu du site se place juste derrière elle.'},

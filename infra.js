@@ -334,11 +334,11 @@ function renderTech(){const s=IW;const host=$('#techHost');if(!host||!s)return;
   <text x="${tx}" y="${ty}" text-anchor="${an}" font-size="13" font-weight="800" fill="var(--ink)">${esc(l1)}</text>${l2?`<text x="${tx}" y="${ty+15}" text-anchor="${an}" font-size="11" font-family="var(--f-mono)" fill="var(--muted)">${esc(l2)}</text>`:''}${l3?`<text x="${tx}" y="${ty+29}" text-anchor="${an}" font-size="10.5" fill="${e&&prop(e)?'var(--warn)':'var(--muted)'}">${esc(l3)}</text>`:''}${e&&prop(e)?`<text x="${x+sz-2}" y="${y+6}" font-size="12" font-weight="800" fill="var(--warn)">?</text>`:''}</g>`};
  const L=(x1,y1,x2,y2,c='var(--line-2)',w=2.5)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}" stroke-linecap="round"/>`;
  const c0=b0.color||'#2d6be0',c1=b1.color||'#e3622f';
- const nP=Math.max(1,pcs.length),zoneH=Math.max(420,70+nP*118);const top=200;
- const nV=Math.max(1,vms.length),RX=380,RW=800;const rowY=top+zoneH-170;const H=top+zoneH+40;
+ const nP=Math.max(1,pcs.length),zoneH=Math.max(pcs.length?420:560,70+nP*118);const top=200;
+ const hasPc=pcs.length>0,nV=Math.max(1,vms.length),RX=hasPc?380:20,RW=hasPc?800:1160;const rowY=top+zoneH-170;const H=top+zoneH+40;
  let t='';
  // zones
- t+=`<rect x="20" y="${top}" width="320" height="${zoneH}" rx="22" fill="${c0}" fill-opacity=".05" stroke="${c0}" stroke-dasharray="8 5"/><text x="40" y="${top+30}" font-size="14" font-weight="800" fill="${c0}">Postes du plot</text>`;
+ if(hasPc)t+=`<rect x="20" y="${top}" width="320" height="${zoneH}" rx="22" fill="${c0}" fill-opacity=".05" stroke="${c0}" stroke-dasharray="8 5"/><text x="40" y="${top+30}" font-size="14" font-weight="800" fill="${c0}">Postes du plot</text>`;
  t+=`<rect x="${RX}" y="${top}" width="${RW}" height="${zoneH}" rx="22" fill="#8b4fd1" fill-opacity=".04" stroke="#8b4fd1" stroke-dasharray="8 5"/><text x="${RX+RW-20}" y="${top+30}" text-anchor="end" font-size="14" font-weight="800" fill="#8b4fd1">${esc(srv.length>1?'Serveurs Proxmox VE':'Serveur Proxmox VE')}${srv[0]?.os?` · ${esc(srv[0].os.replace(/^Proxmox VE\s*/,''))}`:''}</text>`;
  // haut : Internet, lycée, switch
  const SWX=600,SWY=46;

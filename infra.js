@@ -38,7 +38,11 @@ function placeInZone(s,e){const z=zonesOf(s).find(z=>String(z.v.id)===String(e.v
 
 VIEWS.infra=function(){
  const sites=arr('sites').sort((a,b)=>(a.code||0)-(b.code||0));
- if(!isInter()&&!D.sites.get(IX.site))IX.site=sites.find(s=>s.id==='plot7')?.id||sites[0]?.id||'inter';
+ const real=sites.filter(s=>s.kind!=='cloud');
+ // Un seul bâtiment (le plot) : on entre directement dedans, jamais sur la vue « Tous les bâtiments ».
+ // Si les données ne sont pas encore arrivées, on reste sur le plot et on attend (plus de repli sur « Tous les bâtiments »).
+ if(isInter()&&real.length<2)IX.site=real[0]?.id||'plot7';
+ if(!isInter()&&!D.sites.get(IX.site)&&real.length)IX.site=real.find(s=>s.id==='plot7')?.id||real[0].id;
  IW=isInter()?null:clone(D.sites.get(IX.site));
  if(IW&&!IW.layout)autoTopo(IW);
  if(IW&&(!IX.floor||!IW.floors?.some(f=>f.id===IX.floor)))IX.floor=IW.floors?.[0]?.id||null;
@@ -324,7 +328,7 @@ async function exportView(fmt){$('.export')?.classList.remove('open');const v=is
  saveFile(fn+'.pdf',doc.output('blob'))}
 
 /* ===================== Schéma technique (style des schémas des profs) ===================== */
-function renderTech(){const s=IW;const host=$('#techHost');if(!host||!s)return;
+function renderTech(){const s=IW;const host=$('#techHost');if(!host)return;if(!s){host.innerHTML='<p class="muted" style="padding:24px">Chargement de l’infrastructure…</p>';return}
  const E=s.eq||[];const V=s.vlans||[];const b0=V.find(v=>String(v.id)==='1')||V[0]||{},b1=V.find(v=>String(v.id)==='2')||V[1]||{};
  const srv=E.filter(e=>e.type==='serveur');const pcs=E.filter(e=>['poste','public'].includes(e.type)&&e.floorId);
  const gw=E.find(e=>e.type==='routeur'||e.type==='box');const sw=E.find(e=>e.type==='switch'&&e.floorId);
@@ -369,7 +373,7 @@ function renderTech(){const s=IW;const host=$('#techHost');if(!host||!s)return;
 }
 
 /* ===================== Schéma fonctionnel : rôle de chaque machine et échanges entre les services ===================== */
-function renderFonc(){const s=IW;const host=$('#foncHost');if(!host||!s)return;
+function renderFonc(){const s=IW;const host=$('#foncHost');if(!host)return;if(!s){host.innerHTML='<p class="muted" style="padding:24px">Chargement de l’infrastructure…</p>';return}
  const E=s.eq||[];const V=s.vlans||[];const b0=V.find(v=>String(v.id)==='1')||V[0]||{},b1=V.find(v=>String(v.id)==='2')||V[1]||{};
  const c0=b0.color||'#2d5bd8',c1=b1.color||'#1f9d74',cP='#8b4fd1';
  const txt=e=>`${e.name||''} ${e.role||''} ${e.os||''}`;const find=re=>E.find(e=>re.test(txt(e)));

@@ -970,3 +970,10 @@ input,select,textarea{background:var(--surface-2);border-color:var(--line-2)}
  .card{padding:16px}
 }
 @media (max-width:860px){.dtbl.inv th:nth-child(2),.dtbl.inv td:nth-child(2),.dtbl.inv th:nth-child(5),.dtbl.inv td:nth-child(5){display:none}}
+/* Schéma fonctionnel */
+.fonc-flows{list-style:none;margin:8px 0 0;padding:12px 12px 4px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 26px;color:var(--ink-2);border-top:1px solid var(--line)}
+.fonc-flows li{display:flex;gap:10px;align-items:flex-start;line-height:1.45}
+.fonc-flows b{flex:0 0 22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);font-size:12px;font-weight:800}
+.fonc-flows strong{color:var(--ink)}
+.tech-svg .fcard.tnode:hover rect{stroke:var(--accent)}
+@media (max-width:860px){.fonc-flows{grid-template-columns:1fr}}

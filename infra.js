@@ -6,7 +6,7 @@ function onSitesSnapshot(){}
 const isInter=()=>IX.site==='inter';
 const siteDoc=()=>IW&&IW.id===IX.site?IW:(IW=clone(D.sites.get(IX.site)));
 const NODE=44,TN=56;
-const VIEWS_INFRA=[['tech','Schéma technique','plan'],['topo','Topologie','topo'],['plan','Plan','plan'],['iso','Vue 3D','cube'],['baie','Baie','rack'],['tables','Tableaux','table']];
+const VIEWS_INFRA=[['fonc','Schéma fonctionnel','decision'],['tech','Schéma technique','plan'],['topo','Topologie','topo'],['plan','Plan','plan'],['iso','Vue 3D','cube'],['baie','Baie','rack'],['tables','Tableaux','table']];
 const DOCK=[['poste','Poste'],['serveur','Serveur'],['vm','Machine virtuelle'],['parefeu','Pare-feu'],['switch','Switch / pont'],['routeur','Routeur'],['nas','NAS'],['wifi','Borne Wi-Fi'],['imprimante','Imprimante'],['mobile','Smartphone'],['box','Box Internet'],['service','Service']];
 const PREFIX={poste:'PC',public:'PUB',imprimante:'IMP',borne:'OPAC',mobile:'TEL',wifi:'AP',switch:'SW',parefeu:'FW',routeur:'RT',box:'BOX',serveur:'SRV',vm:'VM',nas:'NAS',automate:'AUTO',service:'SVC',peripherique:'USB',onduleur:'UPS',brassage:'PP'};
 const ZONE_EXCL=['cloud','box','routeur','parefeu','switch','wifi','brassage','onduleur','service'];
@@ -47,8 +47,8 @@ VIEWS.infra=function(){
  ${isInter()?'':tabsHtml(VIEWS_INFRA,IX.view,'setIV')}
  <div class="row" style="gap:6px">${v==='topo'?`<button class="btn" onclick="addZone()">${ui('plus',16)} Zone réseau</button>`:''}${v==='plan'?`<button class="btn" onclick="addRoom()">${ui('plus',16)} Salle</button>`:''}${['topo','plan','inter'].includes(v)?`<button class="btn ${IX.connect?'primary':''}" onclick="IX.connect=!IX.connect;IX.src=null;renderView()">${ui('link',16)} ${IX.connect?'Terminer':'Câbler'}</button>`:''}
  ${v==='iso'?`<button class="btn" onclick="IX.rot=(IX.rot+1)%4;drawInfra();fitInfra()">${ui('rotate',16)} Pivoter</button>`:''}
- ${!['tables','tech'].includes(v)?`<div class="export"><button class="btn" onclick="this.parentNode.classList.toggle('open')">${ui('download',16)} Exporter</button><div class="menu"><button onclick="exportView('pdf')">PDF (schéma + inventaire)</button><button onclick="exportView('png')">Image PNG</button><button onclick="exportView('svg')">SVG (pour LibreOffice Draw)</button></div></div>`:''}</div></div>
- ${v==='tables'?`<div id="tablesHost"></div>`:v==='tech'?`<div class="card tech-host" id="techHost"></div>`:`<div class="stage ${['topo','plan','inter'].includes(v)?'grid-bg':''}" id="stage"><svg class="canvas" id="isvg"><g id="ig"></g></svg>
+ ${!['tables','tech','fonc'].includes(v)?`<div class="export"><button class="btn" onclick="this.parentNode.classList.toggle('open')">${ui('download',16)} Exporter</button><div class="menu"><button onclick="exportView('pdf')">PDF (schéma + inventaire)</button><button onclick="exportView('png')">Image PNG</button><button onclick="exportView('svg')">SVG (pour LibreOffice Draw)</button></div></div>`:''}</div></div>
+ ${v==='tables'?`<div id="tablesHost"></div>`:v==='tech'?`<div class="card tech-host" id="techHost"></div>`:v==='fonc'?`<div class="card tech-host" id="foncHost"></div>`:`<div class="stage ${['topo','plan','inter'].includes(v)?'grid-bg':''}" id="stage"><svg class="canvas" id="isvg"><g id="ig"></g></svg>
   <div class="legend" id="ileg"></div>
   <div class="zoom"><button class="btn icon" title="Tout voir" onclick="fitInfra()">${ui('fit',16)}</button><button class="btn icon" title="Zoomer" onclick="zoomBy(1.2)">${ui('plus',16)}</button><button class="btn icon" title="Dézoomer" onclick="zoomBy(1/1.2)"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg></button></div>
   ${IX.connect?`<div class="hint">${IX.src?'Clique maintenant sur le 2e équipement':'Câblage : clique sur un 1er équipement'}</div>`:''}
@@ -59,6 +59,7 @@ VIEWS.infra=function(){
  $('#siteSel').onchange=e=>{IX.site=e.target.value;IX.sel=null;IX.src=null;IX.connect=false;renderView()};
  if(v==='tables'){renderTables();return}
  if(v==='tech'){renderTech();return}
+ if(v==='fonc'){renderFonc();return}
  const svg=$('#isvg');svg.onpointerdown=iDown;svg.onpointermove=iMove;svg.onpointerup=iUp;svg.onpointercancel=iUp;svg.onwheel=iWheel;svg.ondblclick=iDbl;
  svg.addEventListener('mouseover',tipOver);svg.addEventListener('mouseout',tipOut);svg.addEventListener('mousemove',tipMove);
  $$('.dock-item').forEach(d=>d.onpointerdown=e=>dockDown(e,d.dataset.type));
@@ -364,5 +365,66 @@ function renderTech(){const s=IW;const host=$('#techHost');if(!host||!s)return;
  t+=`<text x="${RX+RW/2}" y="${top+zoneH-14}" text-anchor="middle" font-size="11" fill="var(--muted)">Machines virtuelles hébergées sur ${esc(srv.map(e=>e.name).join(' / ')||'le serveur')}</text>`;
  host.innerHTML=`<p class="tech-hint tiny muted">${ui('fit',12)} Fais glisser pour parcourir le schéma, pince pour zoomer.</p><div class="tech-scroll"><svg viewBox="0 0 1200 ${H}" class="tech-svg" role="img" aria-label="Schéma technique du plot">${t}</svg></div>
  <div class="tech-leg small"><span><i style="background:var(--line-2)"></i> câble physique</span><span><i style="background:${c0}"></i> ${esc(b0.label||'vmbr0')} : ${esc(b0.name||'')}</span><span><i style="background:${c1}"></i> ${esc(b1.label||'vmbr1')} : ${esc(b1.name||'')}</span><span><b style="color:var(--warn)">?</b> proposition à valider</span><span class="muted">Clique sur une machine pour la modifier.</span></div>`;
+ $$('.tnode[data-id]',host).forEach(g=>{if(g.dataset.id)g.onclick=()=>{IX.view='topo';IX.sel={kind:'eq',id:g.dataset.id};renderView()}});
+}
+
+/* ===================== Schéma fonctionnel : rôle de chaque machine et échanges entre les services ===================== */
+function renderFonc(){const s=IW;const host=$('#foncHost');if(!host||!s)return;
+ const E=s.eq||[];const V=s.vlans||[];const b0=V.find(v=>String(v.id)==='1')||V[0]||{},b1=V.find(v=>String(v.id)==='2')||V[1]||{};
+ const c0=b0.color||'#2d5bd8',c1=b1.color||'#1f9d74',cP='#8b4fd1';
+ const txt=e=>`${e.name||''} ${e.role||''} ${e.os||''}`;const find=re=>E.find(e=>re.test(txt(e)));
+ const fw=E.find(e=>e.type==='parefeu');const hv=E.find(e=>e.type==='serveur'&&e.floorId)||E.find(e=>e.type==='serveur');
+ const gw=E.find(e=>e.type==='routeur'||e.type==='box');
+ const ad=find(/active directory|\bAD\b|DHCP/i),glpi=find(/GLPI/i),zbx=find(/zabbix/i),ubu=find(/ntop|wireshark/i);
+ const cli=E.find(e=>['vm','poste'].includes(e.type)&&/windows 1[01]|client/i.test(txt(e)));
+ const nb=(typeof members==='function'&&members().length)||4;const port=(typeof pveCfg==='function'&&pveCfg().port)||8006;
+ const prop=e=>e?.status==='propose';const nm=(e,d)=>esc(e?.name||d);
+ const B=(n,x,y)=>`<g><circle cx="${x}" cy="${y}" r="11" fill="var(--accent)"/><text x="${x}" y="${y+4}" text-anchor="middle" font-size="12" font-weight="800" fill="var(--accent-ink)">${n}</text></g>`;
+ const C=(x,y,w,h,ic,title,sub,e,o={})=>{const p=prop(e);const where=o.where||(e?`${e.name}${e.ip?' · '+e.ip:''}`:'à ajouter dans l’inventaire');
+  return `<g class="fcard${e?' tnode':''}" ${e?`data-id="${e.id}"`:''} style="cursor:${e?'pointer':'default'}"><title>${esc(e?`${e.name} — ${e.os||''} — ${e.role||''}`:title)}</title>
+  <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14" fill="var(--surface-2)" stroke="${p?'var(--warn)':'var(--line-2)'}" stroke-width="1.5" ${p?'stroke-dasharray="6 4"':''}/>
+  <use href="#i-${ic}" x="${x+14}" y="${y+h/2-21}" width="42" height="42"/>
+  <text x="${x+68}" y="${y+h/2-12}" font-size="14" font-weight="800" fill="var(--ink)">${esc(title)}</text>
+  <text x="${x+68}" y="${y+h/2+7}" font-size="12" fill="var(--ink-2)">${esc(sub)}</text>
+  <text x="${x+68}" y="${y+h/2+25}" font-size="11" font-family="var(--f-mono)" fill="${p?'var(--warn)':'var(--muted)'}">${esc(where)}${p?' · à valider':''}</text>
+  ${o.badge?B(o.badge,x+w-18,y+18):''}${p?`<text x="${x+50}" y="${y+h/2-14}" font-size="13" font-weight="800" fill="var(--warn)">?</text>`:''}</g>`};
+ const A=(d,dash)=>`<path d="${d}" fill="none" stroke="var(--muted)" stroke-width="2" ${dash?'stroke-dasharray="6 5"':''} marker-end="url(#fArrow)"/>`;
+ const X=[340,625,910],CW=250,R1=336,R2=486,CH=90;
+ let t=`<defs><marker id="fArrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker></defs>`;
+ // zones
+ t+=`<rect x="20" y="20" width="1160" height="130" rx="20" fill="${c0}" fill-opacity=".05" stroke="${c0}" stroke-dasharray="8 5"/><text x="40" y="45" font-size="13" font-weight="800" fill="${c0}">${esc(b0.name||'Réseau du lycée')} · ${esc(b0.label||'vmbr0')} · ${esc(b0.net||'')}</text>`;
+ t+=`<rect x="320" y="290" width="860" height="310" rx="20" fill="${c1}" fill-opacity=".05" stroke="${c1}" stroke-dasharray="8 5"/><text x="340" y="315" font-size="13" font-weight="800" fill="${c1}">${esc(b1.name||'Réseau interne')} · ${esc(b1.label||'vmbr1')} · ${esc(b1.net||'')}</text>`;
+ t+=`<rect x="898" y="300" width="274" height="290" rx="16" fill="none" stroke="var(--line-2)" stroke-dasharray="4 4"/><text x="1160" y="324" text-anchor="end" font-size="11.5" font-weight="700" fill="var(--muted)">Surveillance et analyse</text>`;
+ t+=`<rect x="20" y="640" width="1160" height="76" rx="18" fill="${cP}" fill-opacity=".07" stroke="${cP}" stroke-width="1.5"/>`;
+ // liaisons
+ t+=`<line x1="750" y1="150" x2="750" y2="180" stroke="${c0}" stroke-width="3"/><line x1="750" y1="260" x2="750" y2="290" stroke="${c1}" stroke-width="3"/>`;
+ [480,750,1020].forEach(x=>t+=`<line x1="${x}" y1="600" x2="${x}" y2="640" stroke="${cP}" stroke-width="2" stroke-dasharray="4 4"/>`);
+ t+=A('M166 132 V632')+B(1,166,560)+`<text x="182" y="548" font-size="11.5" font-weight="700" fill="var(--ink-2)">console Proxmox</text><text x="182" y="564" font-size="11" font-family="var(--f-mono)" fill="var(--muted)">port ${port}</text>`;
+ t+=A('M166 400 H312')+B(2,200,400)+`<text x="182" y="382" font-size="11.5" font-weight="700" fill="var(--ink-2)">interfaces web</text><text x="182" y="426" font-size="11" fill="var(--muted)">GLPI, Zabbix, pfSense</text>`;
+ t+=A(`M${X[0]+125} ${R2} V${R1+CH+8}`)+B(3,X[0]+125,R2-30)+`<text x="${X[0]+145}" y="${R2-34}" font-size="11.5" font-weight="700" fill="var(--ink-2)">session, noms, adresse IP</text><text x="${X[0]+145}" y="${R2-20}" font-size="11" fill="var(--muted)">Kerberos · DNS · DHCP</text>`;
+ // cartes
+ t+=C(36,62,260,72,'poste','Membres du plot',`${nb} administrateurs`,null,{where:'postes de la salle'});
+ t+=C(884,62,280,72,'cloud','Internet','via la passerelle du lycée',gw);
+ t+=C(590,180,320,80,'parefeu','Accès et sécurité','pfSense · Snort (IDS/IPS)',fw,{badge:6});
+ t+=C(X[0],R1,CW,CH,'serveur','Identité et réseau','Annuaire AD DS · DNS · DHCP',ad);
+ t+=C(X[1],R1,CW,CH,'serveur','Gestion de parc','GLPI · base MariaDB',glpi);
+ t+=C(X[2],R1,CW,CH,'serveur','Supervision','Zabbix · alertes',zbx,{badge:4});
+ t+=C(X[0],R2,CW,CH,'poste','Poste utilisateur','client du domaine',cli);
+ t+=C(X[2],R2,CW,CH,'poste','Analyse du trafic','ntopNG · Wireshark',ubu,{badge:5});
+ // socle
+ t+=`<g class="fcard${hv?' tnode':''}" ${hv?`data-id="${hv.id}"`:''} style="cursor:${hv?'pointer':'default'}"><title>${esc(hv?`${hv.name} — ${hv.os||''} — ${hv.role||''}`:'Serveur Proxmox')}</title><use href="#i-serveur" x="40" y="655" width="46" height="46"/>
+  <text x="100" y="673" font-size="14" font-weight="800" fill="${cP}">Virtualisation · ${nm(hv,'Serveur Proxmox')}${hv?.os?` · ${esc(hv.os)}`:''}${hv?.ip?` · <tspan font-family="var(--f-mono)" font-weight="600">${esc(hv.ip)}</tspan>`:''}</text>
+  <text x="100" y="694" font-size="12" fill="var(--ink-2)">Héberge le pare-feu et toutes les machines virtuelles du plot (ponts ${esc(b0.label||'vmbr0')} et ${esc(b1.label||'vmbr1')}).</text></g>`;
+ const li=(n,h,d)=>`<li><b>${n}</b><span><strong>${h}</strong> : ${d}</span></li>`;
+ host.innerHTML=`<p class="tech-hint tiny muted">${ui('fit',12)} Fais glisser pour parcourir le schéma, pince pour zoomer.</p><div class="tech-scroll"><svg viewBox="0 0 1200 730" class="tech-svg" role="img" aria-label="Schéma fonctionnel du plot">${t}</svg></div>
+ <ol class="fonc-flows small">
+ ${li(1,`Membres → ${nm(hv,'serveur Proxmox')}`,`administration des machines virtuelles depuis la console web Proxmox (port ${port}).`)}
+ ${li(2,'Membres → services internes','interfaces web d’administration de GLPI, Zabbix et pfSense.')}
+ ${li(3,`${nm(cli,'Poste client')} → ${nm(ad,'serveur AD')}`,'ouverture de session sur le domaine, résolution des noms (DNS) et adresse IP automatique (DHCP).')}
+ ${li(4,`${nm(zbx,'Zabbix')} → machines du plot`,'surveillance de la disponibilité et alertes en cas de panne.')}
+ ${li(5,nm(ubu,'Analyse du trafic'),'capture et analyse du trafic du réseau interne (ntopNG, Wireshark).')}
+ ${li(6,nm(fw,'Pare-feu'),`relie le réseau interne au réseau du lycée : filtre les flux et détecte les intrusions (Snort).${prop(fw)?' Position à valider.':''}`)}
+ </ol>
+ <div class="tech-leg small"><span><i style="background:${c0}"></i> ${esc(b0.name||'Réseau du lycée')}</span><span><i style="background:${c1}"></i> ${esc(b1.name||'Réseau interne')}</span><span><i style="background:${cP}"></i> virtualisation</span><span><b style="color:var(--warn)">?</b> proposition à valider</span><span class="muted">Clique sur une machine pour la modifier.</span></div>`;
  $$('.tnode[data-id]',host).forEach(g=>{if(g.dataset.id)g.onclick=()=>{IX.view='topo';IX.sel={kind:'eq',id:g.dataset.id};renderView()}});
 }
